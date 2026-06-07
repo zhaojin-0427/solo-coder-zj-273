@@ -70,7 +70,7 @@
             <div class="combo-score">
               <el-progress
                 type="dashboard"
-                :percentage="Math.min(100, Math.round(r.score / 35 * 100))"
+                :percentage="r.score_percent"
                 :width="80"
                 color="#c9a96e"
               />

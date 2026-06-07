@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
 import random
+import uuid
 from itertools import product
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -231,7 +232,7 @@ def create_accessory():
         f = request.files['photo']
         if f and f.filename:
             ext = os.path.splitext(f.filename)[1]
-            photo_filename = f"acc_{datetime.now().strftime('%Y%m%d%H%M%S')}{ext}"
+            photo_filename = f"acc_{datetime.now().strftime('%Y%m%d%H%M%S%f')}_{uuid.uuid4().hex[:8]}{ext}"
             f.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
 
     occasions = request.form.get('occasions', '')
@@ -274,7 +275,7 @@ def update_accessory(aid):
                 if os.path.exists(old_path):
                     os.remove(old_path)
             ext = os.path.splitext(f.filename)[1]
-            photo_filename = f"acc_{datetime.now().strftime('%Y%m%d%H%M%S')}{ext}"
+            photo_filename = f"acc_{datetime.now().strftime('%Y%m%d%H%M%S%f')}_{uuid.uuid4().hex[:8]}{ext}"
             f.save(os.path.join(app.config['UPLOAD_FOLDER'], photo_filename))
             acc.photo = photo_filename
 
@@ -397,15 +398,32 @@ def get_recommendation():
             s += 3
         return s
 
+    max_per_item = 0
+    if main_color:
+        max_per_item += 10 * 2
+    if style:
+        max_per_item += 10 * 1.5
+    if occasion:
+        max_per_item += 10
+    max_per_item += 1
+    piece_count = 3 if (necklaces and earrings and bracelets) else (
+        2 if ((necklaces and earrings) or (necklaces and bracelets) or (earrings and bracelets)) else 1
+    )
+    max_combo_score = max_per_item * piece_count + 8
+    if max_combo_score == 0:
+        max_combo_score = 1
+
     combos.sort(key=combo_score, reverse=True)
     top_combos = combos[:5]
 
     results = []
     for idx, combo in enumerate(top_combos):
         n, e, b = combo
+        raw_score = combo_score(combo)
         results.append({
             'id': idx + 1,
-            'score': round(combo_score(combo), 1),
+            'score': round(raw_score, 1),
+            'score_percent': min(100, round(raw_score / max_combo_score * 100)),
             'necklace': n.to_dict() if n else None,
             'earring': e.to_dict() if e else None,
             'bracelet': b.to_dict() if b else None,
@@ -494,6 +512,8 @@ def get_statistics():
             try:
                 lw = datetime.strptime(acc.last_worn_date, '%Y-%m-%d')
                 days = (today - lw).days
+                if days < 0:
+                    days = 0
             except:
                 days = 999
         if days >= 30:
@@ -510,7 +530,8 @@ def get_statistics():
         if acc.last_worn_date:
             try:
                 lw = datetime.strptime(acc.last_worn_date, '%Y-%m-%d')
-                if (today - lw).days <= 30:
+                days_diff = (today - lw).days
+                if 0 <= days_diff <= 30:
                     worn_30d += 1
             except:
                 pass
