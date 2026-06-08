@@ -39,13 +39,11 @@
             <div class="fp-photo">
               <img v-if="fav.necklace.photo" :src="'/uploads/' + fav.necklace.photo" />
               <div v-else class="fp-empty"><el-icon :size="20"><Picture /></el-icon></div>
-              <el-tag
+              <StatusTag
                 v-if="fav.necklace.status !== 'in_stock'"
-                :type="statusTypeMap[fav.necklace.status] || 'warning'"
-                effect="light"
-                size="small"
+                :status="fav.necklace.status"
                 class="fp-status"
-              >{{ statusLabelMap[fav.necklace.status] || fav.necklace.status }}</el-tag>
+              />
             </div>
             <div class="fp-name">{{ fav.necklace.name }}</div>
             <div class="fp-cat">项链</div>
@@ -54,13 +52,11 @@
             <div class="fp-photo">
               <img v-if="fav.earring.photo" :src="'/uploads/' + fav.earring.photo" />
               <div v-else class="fp-empty"><el-icon :size="20"><Picture /></el-icon></div>
-              <el-tag
+              <StatusTag
                 v-if="fav.earring.status !== 'in_stock'"
-                :type="statusTypeMap[fav.earring.status] || 'warning'"
-                effect="light"
-                size="small"
+                :status="fav.earring.status"
                 class="fp-status"
-              >{{ statusLabelMap[fav.earring.status] || fav.earring.status }}</el-tag>
+              />
             </div>
             <div class="fp-name">{{ fav.earring.name }}</div>
             <div class="fp-cat">耳环</div>
@@ -69,13 +65,11 @@
             <div class="fp-photo">
               <img v-if="fav.bracelet.photo" :src="'/uploads/' + fav.bracelet.photo" />
               <div v-else class="fp-empty"><el-icon :size="20"><Picture /></el-icon></div>
-              <el-tag
+              <StatusTag
                 v-if="fav.bracelet.status !== 'in_stock'"
-                :type="statusTypeMap[fav.bracelet.status] || 'warning'"
-                effect="light"
-                size="small"
+                :status="fav.bracelet.status"
                 class="fp-status"
-              >{{ statusLabelMap[fav.bracelet.status] || fav.bracelet.status }}</el-tag>
+              />
             </div>
             <div class="fp-name">{{ fav.bracelet.name }}</div>
             <div class="fp-cat">手链</div>
@@ -88,7 +82,7 @@
         </div>
 
         <div class="fav-footer">
-          <span style="font-size: 12px; color: #999;">创建于 {{ fav.created_at }}</span>
+          <span style="font-size: 12px; color: #999;">创建于 <DateDisplay :date="fav.created_at" /></span>
           <div class="fav-actions">
             <el-button
               size="small"
@@ -112,33 +106,13 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getMeta, getFavorites, useFavorite, deleteFavorite } from '@/api'
+import StatusTag from '@/components/common/StatusTag.vue'
+import DateDisplay from '@/components/common/DateDisplay.vue'
+import { colorMap } from '@/composables/useColorMap'
 
 const meta = ref({ occasions: [] })
 const list = ref([])
 const filterOccasion = ref('')
-
-const colorMap = {
-  '金色': '#d4a855', '银色': '#c0c0c0', '玫瑰金': '#e8b4a0', '白色': '#f8f5f0',
-  '黑色': '#333333', '红色': '#c83c3c', '粉色': '#f0a0b0', '蓝色': '#5a8cc8',
-  '绿色': '#6ba878', '紫色': '#9b7ab8', '米色': '#e8dcc8', '棕色': '#8b6f47',
-  '灰色': '#999999', '黄色': '#e8c85a'
-}
-
-const statusLabelMap = {
-  in_stock: '在库',
-  lent: '已借出',
-  overdue: '逾期未还',
-  maintenance: '保养中',
-  repair: '维修中'
-}
-
-const statusTypeMap = {
-  in_stock: 'success',
-  lent: 'primary',
-  overdue: 'danger',
-  maintenance: 'warning',
-  repair: 'warning'
-}
 
 const isFavAvailable = (fav) => {
   const items = [fav.necklace, fav.earring, fav.bracelet].filter(Boolean)
@@ -237,6 +211,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
 .fp-photo img {

@@ -6,42 +6,10 @@
     </div>
 
     <div class="stat-cards">
-      <div class="stat-card">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #c9a96e, #e8c87a);">
-          <el-icon :size="22" color="#fff"><Collection /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ stats.total || 0 }}</div>
-          <div class="stat-l">饰品总数</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #5a8cc8, #7aa8e0);">
-          <el-icon :size="22" color="#fff"><Histogram /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ stats.total_wears || 0 }}</div>
-          <div class="stat-l">累计佩戴次数</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #6ba878, #8ac492);">
-          <el-icon :size="22" color="#fff"><SuccessFilled /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ stats.active_rate || 0 }}%</div>
-          <div class="stat-l">30日活跃率 ({{ stats.active_count || 0 }}件)</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #e8b4a0, #f0c8b8);">
-          <el-icon :size="22" color="#fff"><DataLine /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ stats.utilization_rate || 0 }}%</div>
-          <div class="stat-l">整体利用率</div>
-        </div>
-      </div>
+      <StatCard :icon="Collection" :value="stats.total || 0" label="饰品总数" icon-color="#c9a96e,#e8c87a" />
+      <StatCard :icon="Histogram" :value="stats.total_wears || 0" label="累计佩戴次数" icon-color="#5a8cc8,#7aa8e0" />
+      <StatCard :icon="SuccessFilled" :value="(stats.active_rate || 0) + '%'" :label="'30日活跃率 (' + (stats.active_count || 0) + '件)'" icon-color="#6ba878,#8ac492" />
+      <StatCard :icon="DataLine" :value="(stats.utilization_rate || 0) + '%'" label="整体利用率" icon-color="#e8b4a0,#f0c8b8" />
     </div>
 
     <el-row :gutter="20">
@@ -64,42 +32,10 @@
     </div>
 
     <div class="stat-cards">
-      <div class="stat-card" @click="goToTrips" style="cursor: pointer;">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #c9a96e, #e8c87a);">
-          <el-icon :size="22" color="#fff"><Suitcase /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ stats.trip_count || 0 }}</div>
-          <div class="stat-l">行程总数</div>
-        </div>
-      </div>
-      <div class="stat-card" @click="goToTrips" style="cursor: pointer;">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #6ba878, #8ac492);">
-          <el-icon :size="22" color="#fff"><Box /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ stats.trip_packing_rate || 0 }}%</div>
-          <div class="stat-l">整体打包完成率 ({{ stats.trip_packed_items || 0 }}/{{ stats.trip_total_items || 0 }})</div>
-        </div>
-      </div>
-      <div class="stat-card" @click="goToTrips" style="cursor: pointer;">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #5a8cc8, #7aa8e0);">
-          <el-icon :size="22" color="#fff"><RefreshRight /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ stats.trip_plan_utilization || 0 }}%</div>
-          <div class="stat-l">计划内饰品利用率 ({{ stats.trip_unique_count || 0 }}件)</div>
-        </div>
-      </div>
-      <div class="stat-card" @click="goToTrips" style="cursor: pointer;">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #9b7ab8, #b598d0);">
-          <el-icon :size="22" color="#fff"><Calendar /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ stats.upcoming_trips?.length || 0 }}</div>
-          <div class="stat-l">即将到来的行程</div>
-        </div>
-      </div>
+      <StatCard :icon="Suitcase" :value="stats.trip_count || 0" label="行程总数" icon-color="#c9a96e,#e8c87a" clickable @click="goToTrips" />
+      <StatCard :icon="Box" :value="(stats.trip_packing_rate || 0) + '%'" :label="'整体打包完成率 (' + (stats.trip_packed_items || 0) + '/' + (stats.trip_total_items || 0) + ')'" icon-color="#6ba878,#8ac492" clickable @click="goToTrips" />
+      <StatCard :icon="RefreshRight" :value="(stats.trip_plan_utilization || 0) + '%'" :label="'计划内饰品利用率 (' + (stats.trip_unique_count || 0) + '件)'" icon-color="#5a8cc8,#7aa8e0" clickable @click="goToTrips" />
+      <StatCard :icon="Calendar" :value="stats.upcoming_trips?.length || 0" label="即将到来的行程" icon-color="#9b7ab8,#b598d0" clickable @click="goToTrips" />
     </div>
 
     <el-row :gutter="20">
@@ -164,7 +100,7 @@
       <div class="upcoming-list">
         <div v-for="trip in stats.upcoming_trips" :key="trip.id" class="upcoming-card" @click="goToTrip(trip.id)">
           <div class="uc-date-box">
-            <div class="uc-month">{{ formatMonth(trip.start_date) }}</div>
+            <div class="uc-month">{{ formatMonth(trip.start_date) }}月</div>
             <div class="uc-day">{{ formatDay(trip.start_date) }}</div>
           </div>
           <div class="uc-info">
@@ -311,42 +247,10 @@
     </div>
 
     <div class="stat-cards">
-      <div class="stat-card" @click="goToTracking" style="cursor: pointer;">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #5a8cc8, #7aa8e0);">
-          <el-icon :size="22" color="#fff"><User /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ stats.active_loan_count || 0 }}</div>
-          <div class="stat-l">当前借出</div>
-        </div>
-      </div>
-      <div class="stat-card" @click="goToTracking" style="cursor: pointer;">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #c83c3c, #e87878);">
-          <el-icon :size="22" color="#fff"><Warning /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ stats.overdue_loan_count || 0 }}</div>
-          <div class="stat-l">逾期未还</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #e8a45b, #f0c088);">
-          <el-icon :size="22" color="#fff"><Setting /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ (stats.active_maintenance_count || 0) + (stats.active_repair_count || 0) }}</div>
-          <div class="stat-l">保养/维修中 (保养{{ stats.active_maintenance_count || 0 }}·维修{{ stats.active_repair_count || 0 }})</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #9b7ab8, #b598d0);">
-          <el-icon :size="22" color="#fff"><Coin /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">¥{{ stats.total_maintenance_cost || 0 }}</div>
-          <div class="stat-l">累计维修保养费用</div>
-        </div>
-      </div>
+      <StatCard :icon="User" :value="stats.active_loan_count || 0" label="当前借出" icon-color="#5a8cc8,#7aa8e0" clickable @click="goToTracking" />
+      <StatCard :icon="Warning" :value="stats.overdue_loan_count || 0" label="逾期未还" icon-color="#c83c3c,#e87878" clickable @click="goToTracking" />
+      <StatCard :icon="Setting" :value="(stats.active_maintenance_count || 0) + (stats.active_repair_count || 0)" :label="'保养/维修中 (保养' + (stats.active_maintenance_count || 0) + '·维修' + (stats.active_repair_count || 0) + ')'" icon-color="#e8a45b,#f0c088" />
+      <StatCard :icon="Coin" :value="'¥' + (stats.total_maintenance_cost || 0)" label="累计维修保养费用" icon-color="#9b7ab8,#b598d0" />
     </div>
 
     <el-row :gutter="20">
@@ -457,60 +361,12 @@
     </div>
 
     <div class="stat-cards">
-      <div class="stat-card" @click="goToValuation" style="cursor: pointer;">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #c9a96e, #e8c87a);">
-          <el-icon :size="22" color="#fff"><Coin /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">¥{{ (stats.total_asset_value || 0).toLocaleString() }}</div>
-          <div class="stat-l">资产总估值</div>
-        </div>
-      </div>
-      <div class="stat-card" @click="goToInsurance" style="cursor: pointer;">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #6ba878, #8ac492);">
-          <el-icon :size="22" color="#fff"><Coin /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">¥{{ (stats.total_insurance_coverage || 0).toLocaleString() }}</div>
-          <div class="stat-l">已投保保额</div>
-        </div>
-      </div>
-      <div class="stat-card" @click="goToCertificates" style="cursor: pointer;">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #e8a45b, #f0c088);">
-          <el-icon :size="22" color="#fff"><Notebook /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ stats.cert_missing_rate || 0 }}%</div>
-          <div class="stat-l">证书缺失率</div>
-        </div>
-      </div>
-      <div class="stat-card" @click="goToInventory" style="cursor: pointer;">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #5a8cc8, #7aa8e0);">
-          <el-icon :size="22" color="#fff"><Present /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ stats.inventory_completion_rate || 0 }}%</div>
-          <div class="stat-l">盘点完成率</div>
-        </div>
-      </div>
-      <div class="stat-card" @click="goToInventory" style="cursor: pointer;">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #c83c3c, #e87878);">
-          <el-icon :size="22" color="#fff"><Warning /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ stats.unresolved_exception_count || 0 }}</div>
-          <div class="stat-l">未处理盘点异常</div>
-        </div>
-      </div>
-      <div class="stat-card" @click="goToInsurance" style="cursor: pointer;">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #9b7ab8, #b598d0);">
-          <el-icon :size="22" color="#fff"><PieChart /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ stats.high_value_uninsured?.length || 0 }}</div>
-          <div class="stat-l">高价值未投保饰品</div>
-        </div>
-      </div>
+      <StatCard :icon="Coin" :value="'¥' + (stats.total_asset_value || 0).toLocaleString()" label="资产总估值" icon-color="#c9a96e,#e8c87a" clickable @click="goToValuation" />
+      <StatCard :icon="Coin" :value="'¥' + (stats.total_insurance_coverage || 0).toLocaleString()" label="已投保保额" icon-color="#6ba878,#8ac492" clickable @click="goToInsurance" />
+      <StatCard :icon="Notebook" :value="(stats.cert_missing_rate || 0) + '%'" label="证书缺失率" icon-color="#e8a45b,#f0c088" clickable @click="goToCertificates" />
+      <StatCard :icon="Present" :value="(stats.inventory_completion_rate || 0) + '%'" label="盘点完成率" icon-color="#5a8cc8,#7aa8e0" clickable @click="goToInventory" />
+      <StatCard :icon="Warning" :value="stats.unresolved_exception_count || 0" label="未处理盘点异常" icon-color="#c83c3c,#e87878" clickable @click="goToInventory" />
+      <StatCard :icon="PieChart" :value="stats.high_value_uninsured?.length || 0" label="高价值未投保饰品" icon-color="#9b7ab8,#b598d0" clickable @click="goToInsurance" />
     </div>
 
     <el-row :gutter="20">
@@ -596,11 +452,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, computed } from 'vue'
 import * as echarts from 'echarts'
-import { Suitcase, Box, RefreshRight, Calendar, Location, Brush, Picture, DataAnalysis, Collection, Histogram, SuccessFilled, DataLine, Star, User, Warning, Setting, Coin, Wallet, Notebook, Present, TrendCharts, PieChart, CircleCheck, Goods } from '@element-plus/icons-vue'
+import { Suitcase, Box, RefreshRight, Calendar, Location, Brush, Picture, DataAnalysis, Collection, Histogram, SuccessFilled, DataLine, Star, User, Warning, Setting, Coin, Notebook, Present, TrendCharts, PieChart, CircleCheck } from '@element-plus/icons-vue'
 import { getStatistics } from '@/api'
 import { useRouter } from 'vue-router'
+import StatCard from '@/components/common/StatCard.vue'
+import { useECharts } from '@/composables/useECharts'
+import { formatMonth, formatDay } from '@/composables/useFormat'
+import { colorMap } from '@/composables/useColorMap'
 
 const router = useRouter()
 const stats = ref({})
@@ -632,11 +492,13 @@ const statusLabelMap = {
   inventory_exception: '盘点异常'
 }
 
-const colorMap = {
-  '金色': '#d4a855', '银色': '#c0c0c0', '玫瑰金': '#e8b4a0', '白色': '#f8f5f0',
-  '黑色': '#333333', '红色': '#c83c3c', '粉色': '#f0a0b0', '蓝色': '#5a8cc8',
-  '绿色': '#6ba878', '紫色': '#9b7ab8', '米色': '#e8dcc8', '棕色': '#8b6f47',
-  '灰色': '#999999', '黄色': '#e8c85a'
+const exceptionTypeColorMap = {
+  '缺失': '#c83c3c',
+  '损坏': '#e8a45b',
+  '证书不全': '#c9a96e',
+  '位置不符': '#5a8cc8',
+  '借出未登记': '#9b7ab8',
+  '其他': '#999'
 }
 
 const goToTrips = () => {
@@ -670,228 +532,211 @@ const goToTrip = (id) => {
   }, 100)
 }
 
-const formatMonth = (dateStr) => {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  return `${d.getMonth() + 1}月`
-}
-
-const formatDay = (dateStr) => {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  return d.getDate()
-}
-
 const loadData = async () => {
   stats.value = await getStatistics()
-  await nextTick()
-  renderCharts()
 }
 
-const renderCharts = () => {
-  if (colorChartRef.value && stats.value.color_distribution) {
-    const chart = echarts.init(colorChartRef.value)
-    chart.setOption({
-      tooltip: { trigger: 'item', formatter: '{b}: {c}件 ({d}%)' },
-      legend: { bottom: 0, type: 'scroll' },
-      series: [{
-        type: 'pie',
-        radius: ['45%', '70%'],
-        avoidLabelOverlap: false,
-        itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
-        label: { show: true, formatter: '{b}\n{d}%', fontSize: 11 },
-        data: stats.value.color_distribution.map(d => ({
-          name: d.color,
-          value: d.count,
-          itemStyle: { color: colorMap[d.color] || '#c9a96e' }
-        }))
-      }]
-    })
+const getColorChartOption = () => {
+  if (!stats.value.color_distribution) return {}
+  return {
+    tooltip: { trigger: 'item', formatter: '{b}: {c}件 ({d}%)' },
+    legend: { bottom: 0, type: 'scroll' },
+    series: [{
+      type: 'pie',
+      radius: ['45%', '70%'],
+      avoidLabelOverlap: false,
+      itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+      label: { show: true, formatter: '{b}\n{d}%', fontSize: 11 },
+      data: stats.value.color_distribution.map(d => ({
+        name: d.color,
+        value: d.count,
+        itemStyle: { color: colorMap[d.color] || '#c9a96e' }
+      }))
+    }]
   }
+}
 
-  if (categoryChartRef.value && stats.value.category_distribution) {
-    const chart = echarts.init(categoryChartRef.value)
-    chart.setOption({
-      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-      grid: { left: 40, right: 20, top: 20, bottom: 30 },
-      xAxis: {
-        type: 'category',
-        data: stats.value.category_distribution.map(d => d.category),
-        axisLine: { lineStyle: { color: '#ddd' } },
-        axisLabel: { color: '#666' }
-      },
-      yAxis: {
-        type: 'value',
-        splitLine: { lineStyle: { color: '#f5f0e8' } },
-        axisLabel: { color: '#999' }
-      },
-      series: [{
-        type: 'bar',
-        data: stats.value.category_distribution.map(d => ({
-          value: d.count,
-          itemStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: '#e8c87a' },
-              { offset: 1, color: '#c9a96e' }
-            ]),
-            borderRadius: [6, 6, 0, 0]
-          }
-        })),
-        barWidth: '40%',
-        label: { show: true, position: 'top', color: '#4a2c2a', fontWeight: 600 }
-      }]
-    })
-  }
-
-  if (tripColorChartRef.value && stats.value.trip_color_distribution?.length) {
-    const chart = echarts.init(tripColorChartRef.value)
-    chart.setOption({
-      tooltip: { trigger: 'item', formatter: '{b}: {c}次 ({d}%)' },
-      legend: { bottom: 0, type: 'scroll' },
-      series: [{
-        type: 'pie',
-        radius: ['40%', '65%'],
-        roseType: 'radius',
-        itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
-        label: { show: true, formatter: '{b}\n{d}%', fontSize: 11 },
-        data: stats.value.trip_color_distribution.map(d => ({
-          name: d.color,
-          value: d.count,
-          itemStyle: { color: colorMap[d.color] || '#c9a96e' }
-        }))
-      }]
-    })
-  }
-
-  if (statusChartRef.value && stats.value.status_distribution?.length) {
-    const chart = echarts.init(statusChartRef.value)
-    chart.setOption({
-      tooltip: { trigger: 'item', formatter: '{b}: {c}件 ({d}%)' },
-      legend: { bottom: 0, type: 'scroll' },
-      series: [{
-        type: 'pie',
-        radius: ['45%', '70%'],
-        avoidLabelOverlap: false,
-        itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
-        label: { show: true, formatter: '{b}\n{d}%', fontSize: 11 },
-        data: stats.value.status_distribution.map(d => ({
-          name: statusLabelMap[d.status] || d.status,
-          value: d.count,
-          itemStyle: { color: statusColorMap[d.status] || '#c9a96e' }
-        }))
-      }]
-    })
-  }
-
-  if (costTrendChartRef.value && stats.value.cost_trend?.length) {
-    const chart = echarts.init(costTrendChartRef.value)
-    chart.setOption({
-      tooltip: { trigger: 'axis', formatter: '{b}: ¥{c}' },
-      grid: { left: 50, right: 20, top: 20, bottom: 30 },
-      xAxis: {
-        type: 'category',
-        data: stats.value.cost_trend.map(d => d.month),
-        axisLine: { lineStyle: { color: '#ddd' } },
-        axisLabel: { color: '#666' }
-      },
-      yAxis: {
-        type: 'value',
-        name: '¥',
-        splitLine: { lineStyle: { color: '#f5f0e8' } },
-        axisLabel: { color: '#999' }
-      },
-      series: [{
-        type: 'bar',
-        data: stats.value.cost_trend.map(d => ({
-          value: d.total_cost,
-          itemStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: '#b598d0' },
-              { offset: 1, color: '#9b7ab8' }
-            ]),
-            borderRadius: [6, 6, 0, 0]
-          }
-        })),
-        barWidth: '40%',
-        label: { show: true, position: 'top', color: '#4a2c2a', fontWeight: 600, formatter: '¥{c}' }
-      }]
-    })
-  }
-
-  if (valuationTrendChartRef.value && stats.value.valuation_trend?.length) {
-    const chart = echarts.init(valuationTrendChartRef.value)
-    chart.setOption({
-      tooltip: { trigger: 'axis', formatter: '{b}: ¥{c}' },
-      grid: { left: 60, right: 30, top: 30, bottom: 40 },
-      xAxis: {
-        type: 'category',
-        boundaryGap: false,
-        data: stats.value.valuation_trend.map(d => d.date || d.month),
-        axisLine: { lineStyle: { color: '#ddd' } },
-        axisLabel: { color: '#666' }
-      },
-      yAxis: {
-        type: 'value',
-        name: '¥',
-        splitLine: { lineStyle: { color: '#f5f0e8' } },
-        axisLabel: { color: '#999', formatter: value => (value / 1000) + 'k' }
-      },
-      series: [{
-        type: 'line',
-        smooth: true,
-        symbol: 'circle',
-        symbolSize: 6,
-        data: stats.value.valuation_trend.map(d => d.total_value || d.value),
-        lineStyle: { color: '#c9a96e', width: 3 },
-        itemStyle: { color: '#c9a96e', borderColor: '#fff', borderWidth: 2 },
-        areaStyle: {
+const getCategoryChartOption = () => {
+  if (!stats.value.category_distribution) return {}
+  return {
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: 40, right: 20, top: 20, bottom: 30 },
+    xAxis: {
+      type: 'category',
+      data: stats.value.category_distribution.map(d => d.category),
+      axisLine: { lineStyle: { color: '#ddd' } },
+      axisLabel: { color: '#666' }
+    },
+    yAxis: {
+      type: 'value',
+      splitLine: { lineStyle: { color: '#f5f0e8' } },
+      axisLabel: { color: '#999' }
+    },
+    series: [{
+      type: 'bar',
+      data: stats.value.category_distribution.map(d => ({
+        value: d.count,
+        itemStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(201, 169, 110, 0.35)' },
-            { offset: 1, color: 'rgba(201, 169, 110, 0.05)' }
-          ])
-        },
-        label: {
-          show: true,
-          position: 'top',
-          color: '#4a2c2a',
-          fontWeight: 600,
-          formatter: params => '¥' + (params.value / 1000).toFixed(1) + 'k'
+            { offset: 0, color: '#e8c87a' },
+            { offset: 1, color: '#c9a96e' }
+          ]),
+          borderRadius: [6, 6, 0, 0]
         }
-      }]
-    })
-  }
-
-  const exceptionTypeColorMap = {
-    '缺失': '#c83c3c',
-    '损坏': '#e8a45b',
-    '证书不全': '#c9a96e',
-    '位置不符': '#5a8cc8',
-    '借出未登记': '#9b7ab8',
-    '其他': '#999'
-  }
-
-  if (exceptionDistChartRef.value && stats.value.exception_distribution?.length) {
-    const chart = echarts.init(exceptionDistChartRef.value)
-    chart.setOption({
-      tooltip: { trigger: 'item', formatter: '{b}: {c}件 ({d}%)' },
-      legend: { bottom: 0, type: 'scroll' },
-      series: [{
-        type: 'pie',
-        radius: ['40%', '65%'],
-        avoidLabelOverlap: false,
-        itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
-        label: { show: true, formatter: '{b}\n{d}%', fontSize: 11 },
-        data: stats.value.exception_distribution.map(d => ({
-          name: d.type,
-          value: d.count,
-          itemStyle: { color: exceptionTypeColorMap[d.type] || '#c9a96e' }
-        }))
-      }]
-    })
+      })),
+      barWidth: '40%',
+      label: { show: true, position: 'top', color: '#4a2c2a', fontWeight: 600 }
+    }]
   }
 }
 
-onMounted(loadData)
+const getTripColorChartOption = () => {
+  if (!stats.value.trip_color_distribution?.length) return {}
+  return {
+    tooltip: { trigger: 'item', formatter: '{b}: {c}次 ({d}%)' },
+    legend: { bottom: 0, type: 'scroll' },
+    series: [{
+      type: 'pie',
+      radius: ['40%', '65%'],
+      roseType: 'radius',
+      itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+      label: { show: true, formatter: '{b}\n{d}%', fontSize: 11 },
+      data: stats.value.trip_color_distribution.map(d => ({
+        name: d.color,
+        value: d.count,
+        itemStyle: { color: colorMap[d.color] || '#c9a96e' }
+      }))
+    }]
+  }
+}
+
+const getStatusChartOption = () => {
+  if (!stats.value.status_distribution?.length) return {}
+  return {
+    tooltip: { trigger: 'item', formatter: '{b}: {c}件 ({d}%)' },
+    legend: { bottom: 0, type: 'scroll' },
+    series: [{
+      type: 'pie',
+      radius: ['45%', '70%'],
+      avoidLabelOverlap: false,
+      itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+      label: { show: true, formatter: '{b}\n{d}%', fontSize: 11 },
+      data: stats.value.status_distribution.map(d => ({
+        name: statusLabelMap[d.status] || d.status,
+        value: d.count,
+        itemStyle: { color: statusColorMap[d.status] || '#c9a96e' }
+      }))
+    }]
+  }
+}
+
+const getCostTrendChartOption = () => {
+  if (!stats.value.cost_trend?.length) return {}
+  return {
+    tooltip: { trigger: 'axis', formatter: '{b}: ¥{c}' },
+    grid: { left: 50, right: 20, top: 20, bottom: 30 },
+    xAxis: {
+      type: 'category',
+      data: stats.value.cost_trend.map(d => d.month),
+      axisLine: { lineStyle: { color: '#ddd' } },
+      axisLabel: { color: '#666' }
+    },
+    yAxis: {
+      type: 'value',
+      name: '¥',
+      splitLine: { lineStyle: { color: '#f5f0e8' } },
+      axisLabel: { color: '#999' }
+    },
+    series: [{
+      type: 'bar',
+      data: stats.value.cost_trend.map(d => ({
+        value: d.total_cost,
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: '#b598d0' },
+            { offset: 1, color: '#9b7ab8' }
+          ]),
+          borderRadius: [6, 6, 0, 0]
+        }
+      })),
+      barWidth: '40%',
+      label: { show: true, position: 'top', color: '#4a2c2a', fontWeight: 600, formatter: '¥{c}' }
+    }]
+  }
+}
+
+const getValuationTrendChartOption = () => {
+  if (!stats.value.valuation_trend?.length) return {}
+  return {
+    tooltip: { trigger: 'axis', formatter: '{b}: ¥{c}' },
+    grid: { left: 60, right: 30, top: 30, bottom: 40 },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: stats.value.valuation_trend.map(d => d.date || d.month),
+      axisLine: { lineStyle: { color: '#ddd' } },
+      axisLabel: { color: '#666' }
+    },
+    yAxis: {
+      type: 'value',
+      name: '¥',
+      splitLine: { lineStyle: { color: '#f5f0e8' } },
+      axisLabel: { color: '#999', formatter: value => (value / 1000) + 'k' }
+    },
+    series: [{
+      type: 'line',
+      smooth: true,
+      symbol: 'circle',
+      symbolSize: 6,
+      data: stats.value.valuation_trend.map(d => d.total_value || d.value),
+      lineStyle: { color: '#c9a96e', width: 3 },
+      itemStyle: { color: '#c9a96e', borderColor: '#fff', borderWidth: 2 },
+      areaStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: 'rgba(201, 169, 110, 0.35)' },
+          { offset: 1, color: 'rgba(201, 169, 110, 0.05)' }
+        ])
+      },
+      label: {
+        show: true,
+        position: 'top',
+        color: '#4a2c2a',
+        fontWeight: 600,
+        formatter: params => '¥' + (params.value / 1000).toFixed(1) + 'k'
+      }
+    }]
+  }
+}
+
+const getExceptionDistChartOption = () => {
+  if (!stats.value.exception_distribution?.length) return {}
+  return {
+    tooltip: { trigger: 'item', formatter: '{b}: {c}件 ({d}%)' },
+    legend: { bottom: 0, type: 'scroll' },
+    series: [{
+      type: 'pie',
+      radius: ['40%', '65%'],
+      avoidLabelOverlap: false,
+      itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+      label: { show: true, formatter: '{b}\n{d}%', fontSize: 11 },
+      data: stats.value.exception_distribution.map(d => ({
+        name: d.type,
+        value: d.count,
+        itemStyle: { color: exceptionTypeColorMap[d.type] || '#c9a96e' }
+      }))
+    }]
+  }
+}
+
+useECharts(colorChartRef, getColorChartOption, [() => stats.value.color_distribution])
+useECharts(categoryChartRef, getCategoryChartOption, [() => stats.value.category_distribution])
+useECharts(tripColorChartRef, getTripColorChartOption, [() => stats.value.trip_color_distribution])
+useECharts(statusChartRef, getStatusChartOption, [() => stats.value.status_distribution])
+useECharts(costTrendChartRef, getCostTrendChartOption, [() => stats.value.cost_trend])
+useECharts(valuationTrendChartRef, getValuationTrendChartOption, [() => stats.value.valuation_trend])
+useECharts(exceptionDistChartRef, getExceptionDistChartOption, [() => stats.value.exception_distribution])
+
+loadData()
 </script>
 
 <style scoped>
@@ -900,45 +745,6 @@ onMounted(loadData)
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
   margin-bottom: 20px;
-}
-
-.stat-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 18px 20px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  box-shadow: 0 2px 12px rgba(74, 44, 42, 0.06);
-  transition: all 0.2s;
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(74, 44, 42, 0.1);
-}
-
-.stat-ic {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.stat-v {
-  font-size: 24px;
-  font-weight: 700;
-  color: #4a2c2a;
-  line-height: 1.2;
-}
-
-.stat-l {
-  font-size: 12px;
-  color: #999;
-  margin-top: 2px;
 }
 
 .freq-list {

@@ -10,42 +10,30 @@
     </div>
 
     <div class="stat-cards">
-      <div class="stat-card">
-        <div class="stat-icon total">
-          <el-icon :size="28"><Files /></el-icon>
-        </div>
-        <div class="stat-info">
-          <div class="stat-value">{{ stats.total }}</div>
-          <div class="stat-label">证书总数</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon covered">
-          <el-icon :size="28"><Wallet /></el-icon>
-        </div>
-        <div class="stat-info">
-          <div class="stat-value">{{ stats.covered }}</div>
-          <div class="stat-label">有证书饰品</div>
-        </div>
-      </div>
-      <div class="stat-card warning">
-        <div class="stat-icon missing">
-          <el-icon :size="28"><Warning /></el-icon>
-        </div>
-        <div class="stat-info">
-          <div class="stat-value">{{ stats.missing }}</div>
-          <div class="stat-label">证书缺失</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon rate">
-          <el-icon :size="28"><TrendCharts /></el-icon>
-        </div>
-        <div class="stat-info">
-          <div class="stat-value">{{ stats.rate }}%</div>
-          <div class="stat-label">证书覆盖率</div>
-        </div>
-      </div>
+      <StatCard
+        :icon="Files"
+        :value="stats.total"
+        label="证书总数"
+        icon-color="#c9a96e,#b8956a"
+      />
+      <StatCard
+        :icon="Wallet"
+        :value="stats.covered"
+        label="有证书饰品"
+        icon-color="#6ba878,#5a9a68"
+      />
+      <StatCard
+        :icon="WarningFilled"
+        :value="stats.missing"
+        label="证书缺失"
+        icon-color="#e8856a,#d4705a"
+      />
+      <StatCard
+        :icon="TrendCharts"
+        :value="stats.rate + '%'"
+        label="证书覆盖率"
+        icon-color="#7a9cd4,#6a8cc4"
+      />
     </div>
 
     <div class="card">
@@ -103,7 +91,7 @@
         </el-table-column>
         <el-table-column label="签发日期" prop="issue_date" width="120">
           <template #default="{ row }">
-            {{ row.issue_date || '-' }}
+            <DateDisplay :date="row.issue_date" />
           </template>
         </el-table-column>
         <el-table-column label="操作" width="220" fixed="right" align="center">
@@ -205,7 +193,9 @@
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="证书编号">{{ viewData.cert_number || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="签发日期">{{ viewData.issue_date || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="签发日期">
+            <DateDisplay :date="viewData.issue_date" />
+          </el-descriptions-item>
           <el-descriptions-item label="签发机构" :span="2">{{ viewData.issuer || '-' }}</el-descriptions-item>
           <el-descriptions-item label="创建时间" :span="2">{{ viewData.created_at || '-' }}</el-descriptions-item>
           <el-descriptions-item label="备注" :span="2">{{ viewData.notes || '-' }}</el-descriptions-item>
@@ -232,6 +222,8 @@ import {
   getMeta, getCertificates, createCertificate, updateCertificate, deleteCertificate,
   getAccessories
 } from '@/api'
+import StatCard from '@/components/common/StatCard.vue'
+import DateDisplay from '@/components/common/DateDisplay.vue'
 
 const meta = ref({ cert_types: [] })
 const list = ref([])
@@ -393,62 +385,9 @@ onMounted(() => {
 <style scoped>
 .stat-cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
   margin-bottom: 20px;
-}
-
-.stat-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 12px rgba(74, 44, 42, 0.06);
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.stat-card.warning {
-  background: linear-gradient(135deg, #fff8f0 0%, #fff 100%);
-}
-
-.stat-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-}
-
-.stat-icon.total {
-  background: linear-gradient(135deg, #c9a96e 0%, #b8956a 100%);
-}
-
-.stat-icon.covered {
-  background: linear-gradient(135deg, #6ba878 0%, #5a9a68 100%);
-}
-
-.stat-icon.missing {
-  background: linear-gradient(135deg, #e8856a 0%, #d4705a 100%);
-}
-
-.stat-icon.rate {
-  background: linear-gradient(135deg, #7a9cd4 0%, #6a8cc4 100%);
-}
-
-.stat-info .stat-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: #4a2c2a;
-  line-height: 1.2;
-}
-
-.stat-info .stat-label {
-  font-size: 13px;
-  color: #999;
-  margin-top: 4px;
 }
 
 .cert-thumb {
@@ -530,11 +469,5 @@ onMounted(() => {
   max-height: 70vh;
   object-fit: contain;
   border-radius: 8px;
-}
-
-@media (max-width: 900px) {
-  .stat-cards {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 </style>

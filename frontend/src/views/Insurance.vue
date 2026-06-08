@@ -14,51 +14,36 @@
     </div>
 
     <div class="stat-cards">
-      <div class="stat-card">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #c9a96e, #e8c87a);">
-          <el-icon :size="22" color="#fff"><Picture /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ stats.totalAccessories || 0 }}</div>
-          <div class="stat-l">饰品总数</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #6ba878, #8ac492);">
-          <el-icon :size="22" color="#fff"><Wallet /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ stats.insuredCount || 0 }}</div>
-          <div class="stat-l">已投保数量</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #e8a45b, #f0c088);">
-          <el-icon :size="22" color="#fff"><Warning /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ stats.uninsuredCount || 0 }}</div>
-          <div class="stat-l">未投保数量</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #5a8cc8, #7aa8e0);">
-          <el-icon :size="22" color="#fff"><Money /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">¥{{ formatMoney(stats.currentTotalCoverage) }}</div>
-          <div class="stat-l">当前总保额</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #9b7ab8, #b598d0);">
-          <el-icon :size="22" color="#fff"><Notebook /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">¥{{ formatMoney(stats.suggestedTotalCoverage) }}</div>
-          <div class="stat-l">建议总保额</div>
-        </div>
-      </div>
+      <StatCard
+        :icon="Picture"
+        :value="stats.totalAccessories || 0"
+        label="饰品总数"
+        icon-color="#c9a96e,#e8c87a"
+      />
+      <StatCard
+        :icon="Wallet"
+        :value="stats.insuredCount || 0"
+        label="已投保数量"
+        icon-color="#6ba878,#8ac492"
+      />
+      <StatCard
+        :icon="Warning"
+        :value="stats.uninsuredCount || 0"
+        label="未投保数量"
+        icon-color="#e8a45b,#f0c088"
+      />
+      <StatCard
+        :icon="Money"
+        :value="formatAmount(stats.currentTotalCoverage, '¥', 0)"
+        label="当前总保额"
+        icon-color="#5a8cc8,#7aa8e0"
+      />
+      <StatCard
+        :icon="Notebook"
+        :value="formatAmount(stats.suggestedTotalCoverage, '¥', 0)"
+        label="建议总保额"
+        icon-color="#9b7ab8,#b598d0"
+      />
     </div>
 
     <div v-if="highValueUninsured.length > 0" class="card warning-card">
@@ -72,21 +57,17 @@
       <el-table :data="highValueUninsured" stripe size="small">
         <el-table-column label="饰品" min-width="200">
           <template #default="{ row }">
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <div class="table-photo">
-                <img v-if="row.photo" :src="'/uploads/' + row.photo" />
-                <el-icon v-else color="#ccc"><Picture /></el-icon>
-              </div>
-              <div>
-                <div style="font-weight: 500;">{{ row.name }}</div>
-                <div style="font-size: 12px; color: #999;">{{ row.category }} · {{ row.material }}</div>
-              </div>
-            </div>
+            <TablePhotoCell
+              :photo="row.photo"
+              :name="row.name"
+              :category="row.category"
+              :color-family="row.material"
+            />
           </template>
         </el-table-column>
         <el-table-column label="当前估值" width="140" align="center">
           <template #default="{ row }">
-            <span style="color: #c83c3c; font-weight: 600;">¥{{ formatMoney(row.current_value) }}</span>
+            <AmountDisplay :amount="row.current_value" color="#c83c3c" :font-weight="600" />
           </template>
         </el-table-column>
         <el-table-column label="操作" width="140" align="center">
@@ -122,23 +103,31 @@
         </el-table-column>
         <el-table-column label="当前估值" width="120" align="center">
           <template #default="{ row }">
-            ¥{{ formatMoney(row.accessory?.current_value) }}
+            <AmountDisplay :amount="row.accessory?.current_value" />
           </template>
         </el-table-column>
         <el-table-column label="保险公司" prop="insurance_company" width="140" />
         <el-table-column label="保单号" prop="policy_number" width="160" />
         <el-table-column label="保额" width="120" align="center">
           <template #default="{ row }">
-            <span style="font-weight: 600; color: #8b6f47;">¥{{ formatMoney(row.coverage_amount) }}</span>
+            <AmountDisplay :amount="row.coverage_amount" color="#8b6f47" :font-weight="600" />
           </template>
         </el-table-column>
         <el-table-column label="保费" width="100" align="center">
           <template #default="{ row }">
-            ¥{{ formatMoney(row.premium) }}
+            <AmountDisplay :amount="row.premium" />
           </template>
         </el-table-column>
-        <el-table-column label="生效日期" prop="effective_date" width="120" align="center" />
-        <el-table-column label="到期日期" prop="expiry_date" width="120" align="center" />
+        <el-table-column label="生效日期" width="120" align="center">
+          <template #default="{ row }">
+            <DateDisplay :date="row.effective_date" />
+          </template>
+        </el-table-column>
+        <el-table-column label="到期日期" width="120" align="center">
+          <template #default="{ row }">
+            <DateDisplay :date="row.expiry_date" />
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="statusTypeMap[row.status]" effect="light">
@@ -168,7 +157,7 @@
                 <el-option
                   v-for="acc in accessories"
                   :key="acc.id"
-                  :label="acc.name + ' (估值: ¥' + formatMoney(acc.current_value) + ')'"
+                  :label="acc.name + ' (估值: ¥' + formatAmount(acc.current_value, '', 0) + ')'"
                   :value="acc.id"
                 />
               </el-select>
@@ -284,12 +273,19 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  Wallet, Plus, Edit, Delete, Download, Coin, WarningFilled, Picture, Refresh, Notebook
+  Wallet, Plus, Edit, Delete, Download, Coin, WarningFilled, Picture, Refresh, Notebook, Warning, Money
 } from '@element-plus/icons-vue'
 import {
   getInsuranceItems, createInsuranceItem, updateInsuranceItem, deleteInsuranceItem,
   exportInsuranceList, getAccessories, calculateValuation, getMeta
 } from '@/api'
+import StatCard from '@/components/common/StatCard.vue'
+import TablePhotoCell from '@/components/common/TablePhotoCell.vue'
+import AmountDisplay from '@/components/common/AmountDisplay.vue'
+import DateDisplay from '@/components/common/DateDisplay.vue'
+import { useFormat } from '@/composables/useFormat'
+
+const { formatAmount, formatDate } = useFormat()
 
 const meta = ref({ insurance_companies: [] })
 const insuranceList = ref([])
@@ -307,11 +303,6 @@ const statusTypeMap = {
   active: 'success',
   expired: 'danger',
   renewal: 'warning'
-}
-
-const formatMoney = (val) => {
-  if (val === null || val === undefined || val === '') return '0'
-  return Number(val).toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 }
 
 const stats = computed(() => {
@@ -501,66 +492,9 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
-.stat-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 18px 20px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  box-shadow: 0 2px 12px rgba(74, 44, 42, 0.06);
-  transition: all 0.2s;
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(74, 44, 42, 0.1);
-}
-
-.stat-ic {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.stat-v {
-  font-size: 24px;
-  font-weight: 700;
-  color: #4a2c2a;
-  line-height: 1.2;
-}
-
-.stat-l {
-  font-size: 12px;
-  color: #999;
-  margin-top: 2px;
-}
-
 .warning-card {
   border: 1px solid #f5d0d0;
   background: linear-gradient(135deg, #fff5f5 0%, #fff 100%);
-}
-
-.table-photo {
-  width: 40px;
-  height: 40px;
-  border-radius: 6px;
-  background: #f5efe6;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.table-photo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .table-photo-small {

@@ -146,19 +146,13 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { MagicStick } from '@element-plus/icons-vue'
 import { getMeta, getRecommendations, createFavorite, wearAccessory } from '@/api'
+import { colorMap } from '@/composables/useColorMap'
 
 const meta = ref({ color_families: [], styles: [], occasions: [] })
 const filters = reactive({ main_color: '', style: '', occasion: '' })
 const results = ref([])
 const loading = ref(false)
 const searched = ref(false)
-
-const colorMap = {
-  '金色': '#d4a855', '银色': '#c0c0c0', '玫瑰金': '#e8b4a0', '白色': '#f8f5f0',
-  '黑色': '#333333', '红色': '#c83c3c', '粉色': '#f0a0b0', '蓝色': '#5a8cc8',
-  '绿色': '#6ba878', '紫色': '#9b7ab8', '米色': '#e8dcc8', '棕色': '#8b6f47',
-  '灰色': '#999999', '黄色': '#e8c85a'
-}
 
 const loadMeta = async () => {
   meta.value = await getMeta()

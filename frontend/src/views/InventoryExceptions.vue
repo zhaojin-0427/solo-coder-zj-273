@@ -10,24 +10,18 @@
     </div>
 
     <div class="stat-cards">
-      <div class="stat-card">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #e8a45b, #f0c088);">
-          <el-icon :size="22" color="#fff"><Warning /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ pendingCount }}</div>
-          <div class="stat-l">待处理异常</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #6ba878, #8ac492);">
-          <el-icon :size="22" color="#fff"><CircleCheck /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ resolvedCount }}</div>
-          <div class="stat-l">已解决异常</div>
-        </div>
-      </div>
+      <StatCard
+        :icon="Warning"
+        :value="pendingCount"
+        label="待处理异常"
+        icon-color="#e8a45b,#f0c088"
+      />
+      <StatCard
+        :icon="CircleCheck"
+        :value="resolvedCount"
+        label="已解决异常"
+        icon-color="#6ba878,#8ac492"
+      />
     </div>
 
     <div class="card">
@@ -53,16 +47,13 @@
       <el-table :data="filteredList" stripe>
         <el-table-column label="饰品" min-width="200">
           <template #default="{ row }">
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <div style="width: 44px; height: 44px; border-radius: 6px; background: #f5efe6; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-                <img v-if="row.accessory?.photo" :src="'/uploads/' + row.accessory.photo" style="width: 100%; height: 100%; object-fit: cover;" />
-                <el-icon v-else color="#ccc"><Picture /></el-icon>
-              </div>
-              <div>
-                <div style="font-weight: 500;">{{ row.accessory?.name }}</div>
-                <div style="font-size: 12px; color: #999;">{{ row.accessory?.category }} · {{ row.accessory?.material }}</div>
-              </div>
-            </div>
+            <TablePhotoCell
+              :photo="row.accessory?.photo"
+              :name="row.accessory?.name"
+              :category="row.accessory?.category"
+              :color-family="row.accessory?.material"
+              :size="44"
+            />
           </template>
         </el-table-column>
         <el-table-column label="异常类型" width="120">
@@ -83,7 +74,7 @@
           <template #default="{ row }">
             <div style="display: flex; align-items: center; gap: 4px; color: #666; font-size: 13px;">
               <el-icon><Calendar /></el-icon>
-              {{ row.reported_at }}
+              <DateDisplay :date="row.reported_at" />
             </div>
           </template>
         </el-table-column>
@@ -190,12 +181,16 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   WarningFilled, Plus, CircleCheck, Delete, Refresh, Picture,
-  Search, Calendar, User
+  Search, Calendar, User, Warning
 } from '@element-plus/icons-vue'
 import {
   getInventoryExceptions, resolveInventoryException, deleteInventoryException,
   createInventoryException, getAccessories, getMeta, getInventoryBatches
 } from '@/api'
+import StatCard from '@/components/common/StatCard.vue'
+import TablePhotoCell from '@/components/common/TablePhotoCell.vue'
+import DateDisplay from '@/components/common/DateDisplay.vue'
+import { colorMap } from '@/composables/useColorMap'
 
 const meta = ref({ inventory_exception_types: [] })
 const list = ref([])
@@ -211,13 +206,6 @@ const exceptionTypeMap = {
   '位置不符': { type: 'warning' },
   '借出未登记': { type: 'primary' },
   '其他': { type: 'info' }
-}
-
-const colorMap = {
-  '金色': '#d4a855', '银色': '#c0c0c0', '玫瑰金': '#e8b4a0', '白色': '#f8f5f0',
-  '黑色': '#333333', '红色': '#c83c3c', '粉色': '#f0a0b0', '蓝色': '#5a8cc8',
-  '绿色': '#6ba878', '紫色': '#9b7ab8', '米色': '#e8dcc8', '棕色': '#8b6f47',
-  '灰色': '#999999', '黄色': '#e8c85a'
 }
 
 const pendingCount = computed(() => list.value.filter(e => !e.resolved).length)
@@ -329,44 +317,5 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 14px;
   margin-bottom: 20px;
-}
-
-.stat-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 16px 18px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  box-shadow: 0 2px 12px rgba(74, 44, 42, 0.06);
-  transition: all 0.2s;
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(74, 44, 42, 0.1);
-}
-
-.stat-ic {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.stat-v {
-  font-size: 22px;
-  font-weight: 700;
-  color: #4a2c2a;
-  line-height: 1.2;
-}
-
-.stat-l {
-  font-size: 12px;
-  color: #999;
-  margin-top: 2px;
 }
 </style>

@@ -1,0 +1,9 @@
+from .accessories_bp import bp as accessories_bp
+from .recommend_bp import bp as recommend_bp
+from .trips_bp import bp as trips_bp
+from .tracking_bp import bp as tracking_bp
+from .valuations_bp import bp as valuations_bp
+from .certificates_bp import bp as certificates_bp
+from .inventory_bp import bp as inventory_bp
+from .insurance_bp import bp as insurance_bp
+from .statistics_bp import bp as statistics_bp

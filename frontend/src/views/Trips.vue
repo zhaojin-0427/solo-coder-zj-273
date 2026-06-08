@@ -22,7 +22,7 @@
           <div class="trip-header">
             <h4 class="trip-name">{{ trip.name }}</h4>
             <el-tag :type="trip.status === 'completed' ? 'success' : trip.status === 'packing' ? 'warning' : 'info'" size="small">
-              {{ statusMap[trip.status] || '规划中' }}
+              {{ tripStatusMap[trip.status] || '规划中' }}
             </el-tag>
           </div>
           <div class="trip-meta">
@@ -32,7 +32,7 @@
             </div>
             <div class="meta-item">
               <el-icon><Calendar /></el-icon>
-              {{ trip.start_date }} ~ {{ trip.end_date }}
+              <DateDisplay :date="trip.start_date" /> ~ <DateDisplay :date="trip.end_date" />
             </div>
             <div class="meta-item">
               <el-icon><Sunny /></el-icon>
@@ -70,7 +70,7 @@
             <div class="ov-meta">
               <el-icon><Location /></el-icon> {{ currentTrip.destination || '未指定' }}
               <span class="sep">·</span>
-              <el-icon><Calendar /></el-icon> {{ currentTrip.start_date }} ~ {{ currentTrip.end_date }}
+              <el-icon><Calendar /></el-icon> <DateDisplay :date="currentTrip.start_date" /> ~ <DateDisplay :date="currentTrip.end_date" />
               <span class="sep">·</span>
               <el-icon><Sunny /></el-icon> {{ currentTrip.temp_min }}°C ~ {{ currentTrip.temp_max }}°C
             </div>
@@ -102,33 +102,24 @@
             </div>
             <el-progress type="dashboard" :percentage="currentTrip.packing_rate" :width="60" color="#c9a96e" />
           </div>
-          <div class="stat-card-mini">
-            <div class="scm-icon" style="background: linear-gradient(135deg, #5a8cc8, #7aa8e0);">
-              <el-icon :size="18" color="#fff"><Collection /></el-icon>
-            </div>
-            <div>
-              <div class="scm-value">{{ currentTrip.unique_accessory_count }} 件</div>
-              <div class="scm-label">携带饰品数</div>
-            </div>
-          </div>
-          <div class="stat-card-mini">
-            <div class="scm-icon" style="background: linear-gradient(135deg, #6ba878, #8ac492);">
-              <el-icon :size="18" color="#fff"><RefreshRight /></el-icon>
-            </div>
-            <div>
-              <div class="scm-value">{{ currentTrip.reuse_rate }}%</div>
-              <div class="scm-label">饰品复用率</div>
-            </div>
-          </div>
-          <div class="stat-card-mini">
-            <div class="scm-icon" style="background: linear-gradient(135deg, #e8b4a0, #f0c8b8);">
-              <el-icon :size="18" color="#fff"><Calendar /></el-icon>
-            </div>
-            <div>
-              <div class="scm-value">{{ currentTrip.days?.length || 0 }} 天</div>
-              <div class="scm-label">行程天数</div>
-            </div>
-          </div>
+          <StatCard
+            :icon="Collection"
+            :value="currentTrip.unique_accessory_count + ' 件'"
+            label="携带饰品数"
+            icon-color="#5a8cc8,#7aa8e0"
+          />
+          <StatCard
+            :icon="RefreshRight"
+            :value="formatPercent(currentTrip.reuse_rate, 0)"
+            label="饰品复用率"
+            icon-color="#6ba878,#8ac492"
+          />
+          <StatCard
+            :icon="Calendar"
+            :value="(currentTrip.days?.length || 0) + ' 天'"
+            label="行程天数"
+            icon-color="#e8b4a0,#f0c8b8"
+          />
         </div>
 
         <div class="ov-actions-row">
@@ -144,7 +135,7 @@
             <div class="day-header">
               <div class="day-title">
                 <span class="day-badge">D{{ day.day_index + 1 }}</span>
-                <span class="day-date">{{ day.date }}</span>
+                <span class="day-date"><DateDisplay :date="day.date" /></span>
                 <el-tag v-if="day.occasion" size="small" type="success" style="margin-left: 10px;">
                   {{ day.occasion }}
                 </el-tag>
@@ -170,15 +161,11 @@
                 <div class="pc-photo">
                   <img v-if="item.accessory.photo" :src="'/uploads/' + item.accessory.photo" />
                   <div v-else class="pc-empty"><el-icon :size="24"><Picture /></el-icon></div>
-                  <el-tag
+                  <StatusTag
                     v-if="item.accessory.status !== 'in_stock'"
-                    :type="statusTypeMap[item.accessory.status] || 'warning'"
-                    effect="light"
-                    size="small"
+                    :status="item.accessory.status"
                     class="pc-status-tag"
-                  >
-                    {{ statusLabelMap[item.accessory.status] || item.accessory.status }}
-                  </el-tag>
+                  />
                 </div>
                 <div class="pc-info">
                   <div class="pc-cat">{{ item.accessory.category }}</div>
@@ -206,15 +193,11 @@
                   <div class="pc-photo">
                     <img v-if="item.accessory.photo" :src="'/uploads/' + item.accessory.photo" />
                     <div v-else class="pc-empty"><el-icon :size="24"><Picture /></el-icon></div>
-                    <el-tag
+                    <StatusTag
                       v-if="item.accessory.status !== 'in_stock'"
-                      :type="statusTypeMap[item.accessory.status] || 'warning'"
-                      effect="light"
-                      size="small"
+                      :status="item.accessory.status"
                       class="pc-status-tag"
-                    >
-                      {{ statusLabelMap[item.accessory.status] || item.accessory.status }}
-                    </el-tag>
+                    />
                   </div>
                   <div class="pc-info">
                     <div class="pc-cat">{{ item.accessory.category }}</div>
@@ -255,17 +238,13 @@
                 </div>
                 <div class="storage-items">
                   <div v-for="acc in loc.accessories" :key="acc.id" class="storage-item">
-                    <div class="si-photo">
-                      <img v-if="acc.photo" :src="'/uploads/' + acc.photo" />
-                      <el-icon v-else color="#ccc"><Picture /></el-icon>
-                    </div>
-                    <div class="si-info">
-                      <div class="si-name">{{ acc.name }}</div>
-                      <div class="si-meta">
-                        <span class="color-dot" :style="{ background: colorMap[acc.color_family] }"></span>
-                        {{ acc.category }}
-                      </div>
-                    </div>
+                    <TablePhotoCell
+                      :photo="acc.photo"
+                      :name="acc.name"
+                      :category="acc.category"
+                      :color-family="acc.color_family"
+                      :size="36"
+                    />
                   </div>
                 </div>
               </div>
@@ -284,16 +263,12 @@
               <el-table :data="reuseList" stripe>
                 <el-table-column label="饰品" min-width="200">
                   <template #default="{ row }">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                      <div style="width: 40px; height: 40px; border-radius: 6px; background: #f5efe6; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-                        <img v-if="row.accessory.photo" :src="'/uploads/' + row.accessory.photo" style="width: 100%; height: 100%; object-fit: cover;" />
-                        <el-icon v-else color="#ccc"><Picture /></el-icon>
-                      </div>
-                      <div>
-                        <div style="font-weight: 500;">{{ row.accessory.name }}</div>
-                        <div style="font-size: 12px; color: #999;">{{ row.accessory.category }} · {{ row.accessory.material }}</div>
-                      </div>
-                    </div>
+                    <TablePhotoCell
+                      :photo="row.accessory.photo"
+                      :name="row.accessory.name"
+                      :category="row.accessory.category"
+                      :color-family="row.accessory.color_family"
+                    />
                   </template>
                 </el-table-column>
                 <el-table-column label="色系" width="100">
@@ -341,7 +316,7 @@
                     <span class="color-dot" :style="{ background: colorMap[risk.accessory.color_family] }"></span>
                     {{ risk.accessory.color_family }} · {{ risk.accessory.style }}
                     <span class="sep">·</span>
-                    预计使用 {{ risk.usage_days }}/{{ risk.total_days }} 天 ({{ risk.usage_ratio }}%)
+                    预计使用 {{ risk.usage_days }}/{{ risk.total_days }} 天 ({{ formatPercent(risk.usage_ratio, 0) }})
                   </div>
                   <div class="ri-suggestion">
                     <el-icon color="#e8a45b"><Warning /></el-icon>
@@ -463,8 +438,15 @@ import {
   regenerateTrip, togglePackItem, packAllItems, saveTripFavorite, exportTrip
 } from '@/api'
 import { useRouter } from 'vue-router'
+import StatCard from '@/components/common/StatCard.vue'
+import TablePhotoCell from '@/components/common/TablePhotoCell.vue'
+import StatusTag from '@/components/common/StatusTag.vue'
+import DateDisplay from '@/components/common/DateDisplay.vue'
+import { colorMap } from '@/composables/useColorMap'
+import { useFormat } from '@/composables/useFormat'
 
 const router = useRouter()
+const { formatPercent, formatDate } = useFormat()
 
 const meta = ref({ color_families: [], styles: [], occasions: [] })
 const trips = ref([])
@@ -476,33 +458,10 @@ const formRef = ref(null)
 const exportVisible = ref(false)
 const exportContent = ref('')
 
-const statusMap = {
+const tripStatusMap = {
   planning: '规划中',
   packing: '打包中',
   completed: '已完成'
-}
-
-const statusLabelMap = {
-  in_stock: '在库',
-  lent: '已借出',
-  overdue: '逾期未还',
-  maintenance: '保养中',
-  repair: '维修中'
-}
-
-const statusTypeMap = {
-  in_stock: 'success',
-  lent: 'primary',
-  overdue: 'danger',
-  maintenance: 'warning',
-  repair: 'warning'
-}
-
-const colorMap = {
-  '金色': '#d4a855', '银色': '#c0c0c0', '玫瑰金': '#e8b4a0', '白色': '#f8f5f0',
-  '黑色': '#333333', '红色': '#c83c3c', '粉色': '#f0a0b0', '蓝色': '#5a8cc8',
-  '绿色': '#6ba878', '紫色': '#9b7ab8', '米色': '#e8dcc8', '棕色': '#8b6f47',
-  '灰色': '#999999', '黄色': '#e8c85a'
 }
 
 const defaultForm = () => ({
@@ -1097,38 +1056,6 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.si-photo {
-  width: 36px;
-  height: 36px;
-  background: #f5efe6;
-  border-radius: 6px;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.si-photo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.si-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: #333;
-}
-
-.si-meta {
-  font-size: 11px;
-  color: #999;
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .risk-list {

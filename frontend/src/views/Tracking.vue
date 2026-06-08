@@ -6,51 +6,40 @@
     </div>
 
     <div class="stat-cards">
-      <div class="stat-card" @click="activeTab = 'loans'">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #5a8cc8, #7aa8e0);">
-          <el-icon :size="22" color="#fff"><User /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ summary.active_loan_count || 0 }}</div>
-          <div class="stat-l">当前借出</div>
-        </div>
-      </div>
-      <div class="stat-card" @click="activeTab = 'overdue'" style="cursor: pointer;">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #c83c3c, #e87878);">
-          <el-icon :size="22" color="#fff"><Warning /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ summary.overdue_loan_count || 0 }}</div>
-          <div class="stat-l">逾期未还</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #6ba878, #8ac492);">
-          <el-icon :size="22" color="#fff"><MagicStick /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ summary.active_maintenance_count || 0 }}</div>
-          <div class="stat-l">保养中</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #e8a45b, #f0c088);">
-          <el-icon :size="22" color="#fff"><Setting /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">{{ summary.active_repair_count || 0 }}</div>
-          <div class="stat-l">维修中</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-ic" style="background: linear-gradient(135deg, #9b7ab8, #b598d0);">
-          <el-icon :size="22" color="#fff"><Money /></el-icon>
-        </div>
-        <div>
-          <div class="stat-v">¥{{ summary.total_maintenance_cost || 0 }}</div>
-          <div class="stat-l">累计维修保养费</div>
-        </div>
-      </div>
+      <StatCard
+        :icon="User"
+        :value="summary.active_loan_count || 0"
+        label="当前借出"
+        icon-color="#5a8cc8,#7aa8e0"
+        clickable
+        @click="activeTab = 'loans'"
+      />
+      <StatCard
+        :icon="Warning"
+        :value="summary.overdue_loan_count || 0"
+        label="逾期未还"
+        icon-color="#c83c3c,#e87878"
+        clickable
+        @click="activeTab = 'overdue'"
+      />
+      <StatCard
+        :icon="MagicStick"
+        :value="summary.active_maintenance_count || 0"
+        label="保养中"
+        icon-color="#6ba878,#8ac492"
+      />
+      <StatCard
+        :icon="Setting"
+        :value="summary.active_repair_count || 0"
+        label="维修中"
+        icon-color="#e8a45b,#f0c088"
+      />
+      <StatCard
+        :icon="Money"
+        :value="'¥' + (summary.total_maintenance_cost || 0)"
+        label="累计维修保养费"
+        icon-color="#9b7ab8,#b598d0"
+      />
     </div>
 
     <el-tabs v-model="activeTab" class="main-tabs">
@@ -73,16 +62,12 @@
           <el-table :data="loans" stripe>
             <el-table-column label="饰品" min-width="200">
               <template #default="{ row }">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                  <div style="width: 40px; height: 40px; border-radius: 6px; background: #f5efe6; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-                    <img v-if="row.accessory?.photo" :src="'/uploads/' + row.accessory.photo" style="width: 100%; height: 100%; object-fit: cover;" />
-                    <el-icon v-else color="#ccc"><Picture /></el-icon>
-                  </div>
-                  <div>
-                    <div style="font-weight: 500;">{{ row.accessory?.name }}</div>
-                    <div style="font-size: 12px; color: #999;">{{ row.accessory?.category }} · {{ row.accessory?.color_family }}</div>
-                  </div>
-                </div>
+                <TablePhotoCell
+                  :photo="row.accessory?.photo"
+                  :name="row.accessory?.name"
+                  :category="row.accessory?.category"
+                  :color-family="row.accessory?.color_family"
+                />
               </template>
             </el-table-column>
             <el-table-column label="借用人" width="140" prop="borrower_name" />
@@ -96,10 +81,16 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column label="借出日期" width="120" prop="loan_date" />
-            <el-table-column label="应还日期" width="120">
+            <el-table-column label="借出日期" width="120">
               <template #default="{ row }">
-                <span :style="{ color: row.is_overdue ? '#c83c3c' : '' }">{{ row.due_date }}</span>
+                <DateDisplay :date="row.loan_date" />
+              </template>
+            </el-table-column>
+            <el-table-column label="应还日期" width="180">
+              <template #default="{ row }">
+                <span :style="{ color: row.is_overdue ? '#c83c3c' : '' }">
+                  <DateDisplay :date="row.due_date" />
+                </span>
                 <el-tag v-if="row.is_overdue" type="danger" size="small" effect="light" style="margin-left: 6px;">
                   逾期{{ row.days_overdue }}天
                 </el-tag>
@@ -107,7 +98,7 @@
             </el-table-column>
             <el-table-column label="押金" width="100">
               <template #default="{ row }">
-                <span v-if="row.deposit > 0">¥{{ row.deposit }}</span>
+                <AmountDisplay v-if="row.deposit > 0" :amount="row.deposit" />
                 <span v-else style="color: #999;">无</span>
               </template>
             </el-table-column>
@@ -179,15 +170,15 @@
                 </div>
                 <div class="od-info-row">
                   <span class="od-label">借出日期：</span>
-                  <span class="od-value">{{ loan.loan_date }}</span>
+                  <span class="od-value"><DateDisplay :date="loan.loan_date" /></span>
                 </div>
                 <div class="od-info-row">
                   <span class="od-label">应还日期：</span>
-                  <span class="od-value" style="color: #c83c3c;">{{ loan.due_date }}</span>
+                  <span class="od-value" style="color: #c83c3c;"><DateDisplay :date="loan.due_date" /></span>
                 </div>
                 <div class="od-info-row" v-if="loan.deposit > 0">
                   <span class="od-label">押金：</span>
-                  <span class="od-value">¥{{ loan.deposit }} {{ loan.deposit_returned ? '(已退)' : '(未退)' }}</span>
+                  <span class="od-value"><AmountDisplay :amount="loan.deposit" /> {{ loan.deposit_returned ? '(已退)' : '(未退)' }}</span>
                 </div>
               </div>
               <div v-if="loan.notes" class="od-notes">
@@ -231,25 +222,29 @@
             </el-table-column>
             <el-table-column label="饰品" min-width="180">
               <template #default="{ row }">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                  <div style="width: 36px; height: 36px; border-radius: 6px; background: #f5efe6; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-                    <img v-if="row.accessory?.photo" :src="'/uploads/' + row.accessory.photo" style="width: 100%; height: 100%; object-fit: cover;" />
-                    <el-icon v-else color="#ccc"><Picture /></el-icon>
-                  </div>
-                  <div>
-                    <div style="font-weight: 500; font-size: 13px;">{{ row.accessory?.name }}</div>
-                    <div style="font-size: 11px; color: #999;">{{ row.accessory?.category }}</div>
-                  </div>
-                </div>
+                <TablePhotoCell
+                  :photo="row.accessory?.photo"
+                  :name="row.accessory?.name"
+                  :category="row.accessory?.category"
+                  :size="36"
+                />
               </template>
             </el-table-column>
             <el-table-column label="标题" min-width="160" prop="title" />
             <el-table-column label="店铺" width="120" prop="shop" />
-            <el-table-column label="送修日期" width="110" prop="sent_date" />
-            <el-table-column label="完成日期" width="110" prop="completed_date" />
+            <el-table-column label="送修日期" width="110">
+              <template #default="{ row }">
+                <DateDisplay :date="row.sent_date" />
+              </template>
+            </el-table-column>
+            <el-table-column label="完成日期" width="110">
+              <template #default="{ row }">
+                <DateDisplay :date="row.completed_date" />
+              </template>
+            </el-table-column>
             <el-table-column label="费用" width="100">
               <template #default="{ row }">
-                <span v-if="row.cost > 0">¥{{ row.cost }}</span>
+                <AmountDisplay v-if="row.cost > 0" :amount="row.cost" />
                 <span v-else style="color: #999;">-</span>
               </template>
             </el-table-column>
@@ -316,7 +311,7 @@
               <el-table-column label="下次保养日期" width="150">
                 <template #default="{ row }">
                   <el-tag :type="row.days_until <= 7 ? 'danger' : row.days_until <= 14 ? 'warning' : 'success'" effect="light">
-                    {{ row.next_maintenance_date }}
+                    <DateDisplay :date="row.next_maintenance_date" />
                   </el-tag>
                 </template>
               </el-table-column>
@@ -371,7 +366,7 @@
                 </div>
                 <div>
                   <span style="color: #999;">累计费用：</span>
-                  <span style="color: #c83c3c; font-weight: 600;">¥{{ acc.total_repair_cost }}</span>
+                  <AmountDisplay :amount="acc.total_repair_cost" color="#c83c3c" :font-weight="600" />
                 </div>
               </div>
             </div>
@@ -520,6 +515,15 @@ import {
   getMaintenance, createMaintenance, completeMaintenance, updateMaintenance,
   deleteMaintenance, setMaintenanceDate, getTrackingSummary
 } from '@/api'
+import StatCard from '@/components/common/StatCard.vue'
+import TablePhotoCell from '@/components/common/TablePhotoCell.vue'
+import StatusTag from '@/components/common/StatusTag.vue'
+import AmountDisplay from '@/components/common/AmountDisplay.vue'
+import DateDisplay from '@/components/common/DateDisplay.vue'
+import { useFormat } from '@/composables/useFormat'
+import { colorMap } from '@/composables/useColorMap'
+
+const { formatAmount, formatDate } = useFormat()
 
 const summary = ref({})
 const activeTab = ref('loans')
@@ -534,13 +538,6 @@ const overdueLoans = computed(() => loans.value.filter(l => l.is_overdue && !l.r
 
 const availableAccessories = computed(() => accessories.value.filter(a => a.status === 'in_stock'))
 const inStockAccessories = computed(() => accessories.value.filter(a => a.status === 'in_stock'))
-
-const colorMap = {
-  '金色': '#d4a855', '银色': '#c0c0c0', '玫瑰金': '#e8b4a0', '白色': '#f8f5f0',
-  '黑色': '#333333', '红色': '#c83c3c', '粉色': '#f0a0b0', '蓝色': '#5a8cc8',
-  '绿色': '#6ba878', '紫色': '#9b7ab8', '米色': '#e8dcc8', '棕色': '#8b6f47',
-  '灰色': '#999999', '黄色': '#e8c85a'
-}
 
 const loanDialogVisible = ref(false)
 const editingLoan = ref(false)
@@ -769,45 +766,6 @@ onMounted(async () => {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 14px;
   margin-bottom: 20px;
-}
-
-.stat-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 16px 18px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  box-shadow: 0 2px 12px rgba(74, 44, 42, 0.06);
-  transition: all 0.2s;
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(74, 44, 42, 0.1);
-}
-
-.stat-ic {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.stat-v {
-  font-size: 22px;
-  font-weight: 700;
-  color: #4a2c2a;
-  line-height: 1.2;
-}
-
-.stat-l {
-  font-size: 12px;
-  color: #999;
-  margin-top: 2px;
 }
 
 .main-tabs :deep(.el-tabs__header) {

@@ -34,16 +34,10 @@
             </div>
             <div class="meta-item">
               <el-icon><Refresh /></el-icon>
-              {{ batch.start_date || '-' }} ~ {{ batch.end_date || '-' }}
+              <DateDisplay :date="batch.start_date" /> ~ <DateDisplay :date="batch.end_date" />
             </div>
             <div class="meta-item">
-              <el-tag
-                :type="statusMap[batch.status]?.type || 'info'"
-                size="small"
-                effect="light"
-              >
-                {{ statusMap[batch.status]?.label || batch.status }}
-              </el-tag>
+              <StatusTag :status="batch.status" />
             </div>
           </div>
           <div class="batch-progress">
@@ -100,13 +94,10 @@
               <el-tag :type="batchTypeMap[currentBatch.batch_type]?.type || 'info'" size="small">
                 {{ batchTypeMap[currentBatch.batch_type]?.label || currentBatch.batch_type }}
               </el-tag>
-              <el-tag
-                :type="statusMap[currentBatch.status]?.type || 'info'" size="small" effect="light">
-                {{ statusMap[currentBatch.status]?.label || currentBatch.status }}
-              </el-tag>
+              <StatusTag :status="currentBatch.status" size="small" />
               <span class="sep">·</span>
               <el-icon><Calendar /></el-icon>
-              {{ currentBatch.start_date }} ~ {{ currentBatch.end_date || '进行中' }}
+              <DateDisplay :date="currentBatch.start_date" /> ~ {{ currentBatch.end_date || '进行中' }}
               <span class="sep">·</span>
               <el-icon><Present /></el-icon>
               周期：{{ currentBatch.period || '未指定' }}
@@ -128,50 +119,30 @@
         </div>
 
         <div class="stat-cards-mini">
-          <div class="stat-card-mini">
-            <div class="scm-icon" style="background: linear-gradient(135deg, #c9a96e, #e8c87a);">
-              <el-icon :size="18" color="#fff"><Present /></el-icon>
-            </div>
-            <div>
-              <div class="scm-value">{{ currentBatch.checked_count }}/{{ currentBatch.total_count }}</div>
-              <div class="scm-label">已盘点/总数</div>
-            </div>
-            <el-progress
-              type="dashboard"
-              :percentage="currentBatch.completion_rate || 0"
-              :width="60"
-              color="#c9a96e"
-            />
-          </div>
-          <div class="stat-card-mini">
-            <div class="scm-icon" style="background: linear-gradient(135deg, #c83c3c, #e86b6b);">
-              <el-icon :size="18" color="#fff"><Warning /></el-icon>
-            </div>
-            <div>
-              <div class="scm-value">{{ currentBatch.exception_count }}</div>
-              <div class="scm-label">异常数量</div>
-            </div>
-          </div>
-          <div class="stat-card-mini">
-            <div class="scm-icon" style="background: linear-gradient(135deg, #6ba878, #8ac492);">
-              <el-icon :size="18" color="#fff"><CircleCheck /></el-icon>
-            </div>
-            <div>
-              <div class="scm-value">
-                {{ currentBatch.total_count - currentBatch.exception_count - (currentBatch.total_count - currentBatch.checked_count) }}
-              </div>
-              <div class="scm-label">正常在库</div>
-            </div>
-          </div>
-          <div class="stat-card-mini">
-            <div class="scm-icon" style="background: linear-gradient(135deg, #999, #bbb);">
-              <el-icon :size="18" color="#fff"><Search /></el-icon>
-            </div>
-            <div>
-              <div class="scm-value">{{ currentBatch.total_count - currentBatch.checked_count }}</div>
-              <div class="scm-label">待盘点</div>
-            </div>
-          </div>
+          <StatCard
+            :icon="Present"
+            :value="currentBatch.checked_count + '/' + currentBatch.total_count"
+            label="已盘点/总数"
+            icon-color="#c9a96e,#e8c87a"
+          />
+          <StatCard
+            :icon="Warning"
+            :value="currentBatch.exception_count"
+            label="异常数量"
+            icon-color="#c83c3c,#e86b6b"
+          />
+          <StatCard
+            :icon="CircleCheck"
+            :value="currentBatch.total_count - currentBatch.exception_count - (currentBatch.total_count - currentBatch.checked_count)"
+            label="正常在库"
+            icon-color="#6ba878,#8ac492"
+          />
+          <StatCard
+            :icon="Search"
+            :value="currentBatch.total_count - currentBatch.checked_count"
+            label="待盘点"
+            icon-color="#999,#bbb"
+          />
         </div>
       </div>
 
@@ -230,7 +201,7 @@
               <div class="item-check-method">
                 确认方式：{{ item.check_method === 'scan' ? '扫码' : '手动' }}
                 <span v-if="item.checked_at" class="sep">·</span>
-                <span v-if="item.checked_at">{{ item.checked_at }}</span>
+                <DateDisplay v-if="item.checked_at" :date="item.checked_at" />
               </div>
             </div>
             <div class="item-actions">
@@ -337,7 +308,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Present, Plus, Edit, Delete, CircleCheck, WarningFilled, Refresh, Picture,
-  Location, Search, Calendar, Box, View
+  Location, Search, Calendar, Box, View, ArrowRight, ArrowLeft, Warning, Collection
 } from '@element-plus/icons-vue'
 import {
   getMeta,
@@ -345,6 +316,10 @@ import {
   completeInventoryBatch, deleteInventoryBatch, checkInventoryItem,
   createInventoryException
 } from '@/api'
+import StatCard from '@/components/common/StatCard.vue'
+import StatusTag from '@/components/common/StatusTag.vue'
+import DateDisplay from '@/components/common/DateDisplay.vue'
+import { colorMap } from '@/composables/useColorMap'
 
 const meta = ref({
   inventory_batch_types: [],
@@ -365,12 +340,6 @@ const batchTypeMap = {
   quarterly: { label: '季度盘点', type: 'primary' },
   monthly: { label: '月度盘点', type: 'success' },
   temporary: { label: '临时盘点', type: 'info' }
-}
-
-const statusMap = {
-  pending: { label: '待盘点', type: 'info' },
-  in_progress: { label: '进行中', type: 'warning' },
-  completed: { label: '已完成', type: 'success' }
 }
 
 const defaultCreateForm = () => ({
@@ -641,38 +610,6 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 14px;
-}
-
-.stat-card-mini {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  background: #faf7f5;
-  border-radius: 10px;
-}
-
-.scm-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.scm-value {
-  font-size: 18px;
-  font-weight: 700;
-  color: #4a2c2a;
-  line-height: 1.2;
-}
-
-.scm-label {
-  font-size: 12px;
-  color: #999;
-  margin-top: 2px;
 }
 
 .section-title {

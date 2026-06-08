@@ -44,15 +44,12 @@
               <el-icon :size="40"><Picture /></el-icon>
             </div>
             <span class="acc-category">{{ acc.category }}</span>
-            <el-tag
-              v-if="statusMap[acc.status]"
-              :type="statusMap[acc.status].type"
-              effect="light"
+            <StatusTag
+              v-if="acc.status"
+              :status="acc.status"
               size="small"
               class="acc-status"
-            >
-              {{ statusMap[acc.status].label }}
-            </el-tag>
+            />
           </div>
           <div class="acc-info">
             <h4 class="acc-name">{{ acc.name }}</h4>
@@ -72,7 +69,7 @@
             </div>
             <div class="acc-wear">
               <span>佩戴 {{ acc.wear_count }} 次</span>
-              <span v-if="acc.last_worn_date">· 上次 {{ acc.last_worn_date }}</span>
+              <span v-if="acc.last_worn_date">· 上次 <DateDisplay :date="acc.last_worn_date" /></span>
             </div>
           </div>
           <div class="acc-actions">
@@ -239,28 +236,15 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getMeta, getAccessories, createAccessory, updateAccessory, deleteAccessory, wearAccessory } from '@/api'
+import StatusTag from '@/components/common/StatusTag.vue'
+import DateDisplay from '@/components/common/DateDisplay.vue'
+import { colorMap } from '@/composables/useColorMap'
+import { useFormValidation } from '@/composables/useFormValidation'
 
 const meta = ref({ categories: [], materials: [], color_families: [], styles: [], occasions: [], accessory_statuses: [], maintenance_statuses: [], purchase_channels: [] })
 const list = ref([])
 const searchText = ref('')
 const filters = reactive({ category: '', color_family: '', style: '', occasion: '', status: '' })
-
-const statusMap = {
-  in_stock: { label: '在库', type: 'success' },
-  lent: { label: '已借出', type: 'primary' },
-  overdue: { label: '逾期未还', type: 'danger' },
-  maintenance: { label: '保养中', type: 'warning' },
-  repair: { label: '维修中', type: 'warning' },
-  lost: { label: '已丢失', type: 'danger' },
-  inventory_exception: { label: '盘点异常', type: 'danger' }
-}
-
-const colorMap = {
-  '金色': '#d4a855', '银色': '#c0c0c0', '玫瑰金': '#e8b4a0', '白色': '#f8f5f0',
-  '黑色': '#333333', '红色': '#c83c3c', '粉色': '#f0a0b0', '蓝色': '#5a8cc8',
-  '绿色': '#6ba878', '紫色': '#9b7ab8', '米色': '#e8dcc8', '棕色': '#8b6f47',
-  '灰色': '#999999', '黄色': '#e8c85a'
-}
 
 const filteredList = computed(() => {
   if (!searchText.value) return list.value
@@ -270,10 +254,9 @@ const filteredList = computed(() => {
 
 const dialogVisible = ref(false)
 const editing = ref(false)
-const formRef = ref(null)
 const photoFile = ref(null)
 
-const defaultForm = () => ({
+const getInitialForm = () => ({
   id: null, name: '', category: '', material: '', color: '',
   color_family: '', style: '', occasions: [], storage_location: '',
   last_worn_date: '', wear_count: 0,
@@ -281,7 +264,6 @@ const defaultForm = () => ({
   valuation_notes: '', precious_metal_weight: 0, gemstone_params: '',
   is_lost: false, maintenance_status: 'good'
 })
-const form = reactive(defaultForm())
 
 const rules = {
   name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
@@ -291,6 +273,8 @@ const rules = {
   color: [{ required: true, message: '请输入颜色', trigger: 'blur' }],
   style: [{ required: true, message: '请选择风格', trigger: 'change' }]
 }
+
+const { form, formRef, resetForm, setFormValues } = useFormValidation(getInitialForm, rules)
 
 const loadMeta = async () => {
   meta.value = await getMeta()
@@ -306,7 +290,7 @@ const openDialog = (acc) => {
   photoFile.value = null
   if (acc) {
     editing.value = true
-    Object.assign(form, {
+    setFormValues({
       id: acc.id, name: acc.name, category: acc.category, material: acc.material,
       color: acc.color, color_family: acc.color_family, style: acc.style,
       occasions: [...acc.occasions], storage_location: acc.storage_location,
@@ -323,7 +307,7 @@ const openDialog = (acc) => {
     })
   } else {
     editing.value = false
-    Object.assign(form, defaultForm())
+    resetForm()
   }
   dialogVisible.value = true
 }
