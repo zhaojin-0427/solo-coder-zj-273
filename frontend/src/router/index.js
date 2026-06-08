@@ -31,6 +31,11 @@ const routes = [
     path: '/trips',
     component: () => import('@/views/Trips.vue'),
     meta: { title: '旅行/活动搭配行李规划' }
+  },
+  {
+    path: '/tracking',
+    component: () => import('@/views/Tracking.vue'),
+    meta: { title: '借出与保养追踪' }
   }
 ]
 

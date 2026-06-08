@@ -305,13 +305,159 @@
         <p>太棒了！所有饰品在 30 天内都有佩戴记录</p>
       </div>
     </div>
+
+    <div class="section-title" style="margin-top: 10px; margin-bottom: 16px; padding-left: 10px; border-left: 3px solid #9b7ab8; font-size: 16px; font-weight: 600; color: #4a2c2a;">
+      借出与保养维修统计
+    </div>
+
+    <div class="stat-cards">
+      <div class="stat-card" @click="goToTracking" style="cursor: pointer;">
+        <div class="stat-ic" style="background: linear-gradient(135deg, #5a8cc8, #7aa8e0);">
+          <el-icon :size="22" color="#fff"><User /></el-icon>
+        </div>
+        <div>
+          <div class="stat-v">{{ stats.active_loan_count || 0 }}</div>
+          <div class="stat-l">当前借出</div>
+        </div>
+      </div>
+      <div class="stat-card" @click="goToTracking" style="cursor: pointer;">
+        <div class="stat-ic" style="background: linear-gradient(135deg, #c83c3c, #e87878);">
+          <el-icon :size="22" color="#fff"><Warning /></el-icon>
+        </div>
+        <div>
+          <div class="stat-v">{{ stats.overdue_loan_count || 0 }}</div>
+          <div class="stat-l">逾期未还</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-ic" style="background: linear-gradient(135deg, #e8a45b, #f0c088);">
+          <el-icon :size="22" color="#fff"><Setting /></el-icon>
+        </div>
+        <div>
+          <div class="stat-v">{{ (stats.active_maintenance_count || 0) + (stats.active_repair_count || 0) }}</div>
+          <div class="stat-l">保养/维修中 (保养{{ stats.active_maintenance_count || 0 }}·维修{{ stats.active_repair_count || 0 }})</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-ic" style="background: linear-gradient(135deg, #9b7ab8, #b598d0);">
+          <el-icon :size="22" color="#fff"><Money /></el-icon>
+        </div>
+        <div>
+          <div class="stat-v">¥{{ stats.total_maintenance_cost || 0 }}</div>
+          <div class="stat-l">累计维修保养费用</div>
+        </div>
+      </div>
+    </div>
+
+    <el-row :gutter="20">
+      <el-col :xs="24" :md="12">
+        <div class="card">
+          <div class="section-title">
+            饰品状态分布
+          </div>
+          <div ref="statusChartRef" style="height: 300px;"></div>
+        </div>
+      </el-col>
+      <el-col :xs="24" :md="12">
+        <div class="card">
+          <div class="section-title">
+            维修保养费用趋势
+          </div>
+          <div v-if="!stats.cost_trend?.length" class="empty-tip" style="padding: 30px;">
+            <el-icon><Money /></el-icon>
+            <p>暂无费用数据</p>
+          </div>
+          <div v-else ref="costTrendChartRef" style="height: 300px;"></div>
+        </div>
+      </el-col>
+    </el-row>
+
+    <div v-if="stats.high_risk_accessories?.length > 0" class="card">
+      <div class="section-title">
+        高风险频繁维修饰品
+        <el-tag type="danger" effect="light" style="margin-left: 10px;">
+          {{ stats.high_risk_accessories.length }} 件维修 ≥ 2 次
+        </el-tag>
+      </div>
+      <el-table :data="stats.high_risk_accessories" stripe>
+        <el-table-column label="饰品" min-width="200">
+          <template #default="{ row }">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 40px; height: 40px; border-radius: 6px; background: #f5efe6; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                <img v-if="row.photo" :src="'/uploads/' + row.photo" style="width: 100%; height: 100%; object-fit: cover;" />
+                <el-icon v-else color="#ccc"><Picture /></el-icon>
+              </div>
+              <div>
+                <div style="font-weight: 500;">{{ row.name }}</div>
+                <div style="font-size: 12px; color: #999;">{{ row.category }} · {{ row.material }}</div>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="维修次数" width="120" align="center">
+          <template #default="{ row }">
+            <el-tag type="danger" effect="light">{{ row.repair_count }} 次</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="累计费用" width="140" align="center">
+          <template #default="{ row }">
+            <span style="color: #c83c3c; font-weight: 600;">¥{{ row.total_repair_cost }}</span>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
+    <div v-if="stats.maintenance_reminders_30d?.length > 0" class="card">
+      <div class="section-title">
+        未来 30 天保养提醒
+        <el-tag type="warning" effect="light" style="margin-left: 10px;">
+          {{ stats.maintenance_reminders_30d.length }} 件需保养
+        </el-tag>
+      </div>
+      <el-table :data="stats.maintenance_reminders_30d" stripe>
+        <el-table-column label="饰品" min-width="200">
+          <template #default="{ row }">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 40px; height: 40px; border-radius: 6px; background: #f5efe6; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                <img v-if="row.photo" :src="'/uploads/' + row.photo" style="width: 100%; height: 100%; object-fit: cover;" />
+                <el-icon v-else color="#ccc"><Picture /></el-icon>
+              </div>
+              <div>
+                <div style="font-weight: 500;">{{ row.name }}</div>
+                <div style="font-size: 12px; color: #999;">{{ row.category }} · {{ row.material }}</div>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="下次保养日期" width="160">
+          <template #default="{ row }">
+            <el-tag :type="row.days_until <= 7 ? 'danger' : row.days_until <= 14 ? 'warning' : 'success'" effect="light">
+              {{ row.next_maintenance_date }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="倒计时" width="120" align="center">
+          <template #default="{ row }">
+            <span :style="{ color: row.days_until <= 7 ? '#c83c3c' : row.days_until <= 14 ? '#e8a45b' : '#6ba878', fontWeight: 600 }">
+              还剩 {{ row.days_until }} 天
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="保养周期" width="120" align="center">
+          <template #default="{ row }">
+            <span v-if="row.maintenance_cycle_days > 0">每 {{ row.maintenance_cycle_days }} 天</span>
+            <span v-else style="color: #999;">未设置</span>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, nextTick, watch } from 'vue'
 import * as echarts from 'echarts'
-import { Suitcase, Box, RefreshRight, Calendar, Location, Brush, Picture, DataAnalysis, Collection, Histogram, SuccessFilled, DataLine, Star } from '@element-plus/icons-vue'
+import { Suitcase, Box, RefreshRight, Calendar, Location, Brush, Picture, DataAnalysis, Collection, Histogram, SuccessFilled, DataLine, Star, User, Warning, Setting, Money } from '@element-plus/icons-vue'
 import { getStatistics } from '@/api'
 import { useRouter } from 'vue-router'
 
@@ -320,6 +466,24 @@ const stats = ref({})
 const colorChartRef = ref(null)
 const categoryChartRef = ref(null)
 const tripColorChartRef = ref(null)
+const statusChartRef = ref(null)
+const costTrendChartRef = ref(null)
+
+const statusColorMap = {
+  in_stock: '#6ba878',
+  lent: '#5a8cc8',
+  overdue: '#c83c3c',
+  maintenance: '#e8a45b',
+  repair: '#c86b3c'
+}
+
+const statusLabelMap = {
+  in_stock: '在库',
+  lent: '已借出',
+  overdue: '逾期未还',
+  maintenance: '保养中',
+  repair: '维修中'
+}
 
 const colorMap = {
   '金色': '#d4a855', '银色': '#c0c0c0', '玫瑰金': '#e8b4a0', '白色': '#f8f5f0',
@@ -330,6 +494,10 @@ const colorMap = {
 
 const goToTrips = () => {
   router.push('/trips')
+}
+
+const goToTracking = () => {
+  router.push('/tracking')
 }
 
 const goToTrip = (id) => {
@@ -428,6 +596,61 @@ const renderCharts = () => {
           value: d.count,
           itemStyle: { color: colorMap[d.color] || '#c9a96e' }
         }))
+      }]
+    })
+  }
+
+  if (statusChartRef.value && stats.value.status_distribution?.length) {
+    const chart = echarts.init(statusChartRef.value)
+    chart.setOption({
+      tooltip: { trigger: 'item', formatter: '{b}: {c}件 ({d}%)' },
+      legend: { bottom: 0, type: 'scroll' },
+      series: [{
+        type: 'pie',
+        radius: ['45%', '70%'],
+        avoidLabelOverlap: false,
+        itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+        label: { show: true, formatter: '{b}\n{d}%', fontSize: 11 },
+        data: stats.value.status_distribution.map(d => ({
+          name: statusLabelMap[d.status] || d.status,
+          value: d.count,
+          itemStyle: { color: statusColorMap[d.status] || '#c9a96e' }
+        }))
+      }]
+    })
+  }
+
+  if (costTrendChartRef.value && stats.value.cost_trend?.length) {
+    const chart = echarts.init(costTrendChartRef.value)
+    chart.setOption({
+      tooltip: { trigger: 'axis', formatter: '{b}: ¥{c}' },
+      grid: { left: 50, right: 20, top: 20, bottom: 30 },
+      xAxis: {
+        type: 'category',
+        data: stats.value.cost_trend.map(d => d.month),
+        axisLine: { lineStyle: { color: '#ddd' } },
+        axisLabel: { color: '#666' }
+      },
+      yAxis: {
+        type: 'value',
+        name: '¥',
+        splitLine: { lineStyle: { color: '#f5f0e8' } },
+        axisLabel: { color: '#999' }
+      },
+      series: [{
+        type: 'bar',
+        data: stats.value.cost_trend.map(d => ({
+          value: d.total_cost,
+          itemStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: '#b598d0' },
+              { offset: 1, color: '#9b7ab8' }
+            ]),
+            borderRadius: [6, 6, 0, 0]
+          }
+        })),
+        barWidth: '40%',
+        label: { show: true, position: 'top', color: '#4a2c2a', fontWeight: 600, formatter: '¥{c}' }
       }]
     })
   }

@@ -37,6 +37,10 @@
           <el-icon><Suitcase /></el-icon>
           <span>行李规划</span>
         </el-menu-item>
+        <el-menu-item index="/tracking">
+          <el-icon><Tools /></el-icon>
+          <span>借出与保养</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>

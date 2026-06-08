@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import random
 import uuid
@@ -36,6 +36,31 @@ class Accessory(db.Model):
     last_worn_date = db.Column(db.String(20), default='')
     wear_count = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    next_maintenance_date = db.Column(db.String(20), default='')
+    maintenance_cycle_days = db.Column(db.Integer, default=0)
+
+    def get_status(self):
+        today = datetime.now()
+        active_loan = LoanRecord.query.filter_by(
+            accessory_id=self.id, returned=False
+        ).first()
+        if active_loan:
+            try:
+                due = datetime.strptime(active_loan.due_date, '%Y-%m-%d')
+                if today > due:
+                    return 'overdue'
+            except:
+                pass
+            return 'lent'
+        active_maint = MaintenanceRecord.query.filter_by(
+            accessory_id=self.id, completed=False
+        ).first()
+        if active_maint:
+            if active_maint.record_type == 'maintenance':
+                return 'maintenance'
+            else:
+                return 'repair'
+        return 'in_stock'
 
     def to_dict(self):
         return {
@@ -51,7 +76,10 @@ class Accessory(db.Model):
             'photo': self.photo,
             'last_worn_date': self.last_worn_date,
             'wear_count': self.wear_count,
-            'created_at': self.created_at.strftime('%Y-%m-%d') if self.created_at else ''
+            'created_at': self.created_at.strftime('%Y-%m-%d') if self.created_at else '',
+            'status': self.get_status(),
+            'next_maintenance_date': self.next_maintenance_date,
+            'maintenance_cycle_days': self.maintenance_cycle_days
         }
 
 
@@ -174,6 +202,89 @@ class TripItem(db.Model):
             'reason': self.reason,
             'reuse_count': self.reuse_count,
             'accessory': acc.to_dict() if acc else None
+        }
+
+
+class LoanRecord(db.Model):
+    __tablename__ = 'loan_records'
+    id = db.Column(db.Integer, primary_key=True)
+    accessory_id = db.Column(db.Integer, db.ForeignKey('accessories.id'), nullable=False)
+    borrower_name = db.Column(db.String(100), nullable=False)
+    borrower_phone = db.Column(db.String(50), default='')
+    borrower_contact = db.Column(db.String(200), default='')
+    loan_date = db.Column(db.String(20), default='')
+    due_date = db.Column(db.String(20), default='')
+    return_date = db.Column(db.String(20), default='')
+    deposit = db.Column(db.Float, default=0.0)
+    deposit_returned = db.Column(db.Boolean, default=False)
+    notes = db.Column(db.Text, default='')
+    returned = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        acc = Accessory.query.get(self.accessory_id)
+        is_overdue = False
+        days_overdue = 0
+        if not self.returned and self.due_date:
+            try:
+                due = datetime.strptime(self.due_date, '%Y-%m-%d')
+                today = datetime.now()
+                if today > due:
+                    is_overdue = True
+                    days_overdue = (today - due).days
+            except:
+                pass
+        return {
+            'id': self.id,
+            'accessory_id': self.accessory_id,
+            'accessory': acc.to_dict() if acc else None,
+            'borrower_name': self.borrower_name,
+            'borrower_phone': self.borrower_phone,
+            'borrower_contact': self.borrower_contact,
+            'loan_date': self.loan_date,
+            'due_date': self.due_date,
+            'return_date': self.return_date,
+            'deposit': self.deposit,
+            'deposit_returned': self.deposit_returned,
+            'notes': self.notes,
+            'returned': self.returned,
+            'is_overdue': is_overdue,
+            'days_overdue': days_overdue,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else ''
+        }
+
+
+class MaintenanceRecord(db.Model):
+    __tablename__ = 'maintenance_records'
+    id = db.Column(db.Integer, primary_key=True)
+    accessory_id = db.Column(db.Integer, db.ForeignKey('accessories.id'), nullable=False)
+    record_type = db.Column(db.String(20), default='maintenance')
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, default='')
+    cost = db.Column(db.Float, default=0.0)
+    shop = db.Column(db.String(100), default='')
+    sent_date = db.Column(db.String(20), default='')
+    completed_date = db.Column(db.String(20), default='')
+    completed = db.Column(db.Boolean, default=False)
+    notes = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        acc = Accessory.query.get(self.accessory_id)
+        return {
+            'id': self.id,
+            'accessory_id': self.accessory_id,
+            'accessory': acc.to_dict() if acc else None,
+            'record_type': self.record_type,
+            'title': self.title,
+            'description': self.description,
+            'cost': self.cost,
+            'shop': self.shop,
+            'sent_date': self.sent_date,
+            'completed_date': self.completed_date,
+            'completed': self.completed,
+            'notes': self.notes,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else ''
         }
 
 
@@ -306,10 +417,11 @@ def generate_trip_packing(trip):
         start = None
 
     all_accessories = Accessory.query.all()
-    necklaces = [a for a in all_accessories if a.category == '项链']
-    earrings = [a for a in all_accessories if a.category == '耳环']
-    bracelets = [a for a in all_accessories if a.category == '手链']
-    other_acc = [a for a in all_accessories if a.category not in ['项链', '耳环', '手链']]
+    available = [a for a in all_accessories if a.get_status() == 'in_stock']
+    necklaces = [a for a in available if a.category == '项链']
+    earrings = [a for a in available if a.category == '耳环']
+    bracelets = [a for a in available if a.category == '手链']
+    other_acc = [a for a in available if a.category not in ['项链', '耳环', '手链']]
 
     trip_used_ids = []
     day_plans = []
@@ -474,6 +586,7 @@ def get_accessories():
     style = request.args.get('style', '')
     occasion = request.args.get('occasion', '')
     storage = request.args.get('storage_location', '')
+    status = request.args.get('status', '')
 
     query = Accessory.query
     if category:
@@ -488,6 +601,8 @@ def get_accessories():
     items = query.all()
     if occasion:
         items = [a for a in items if occasion in (a.occasions.split(',') if a.occasions else [])]
+    if status:
+        items = [a for a in items if a.get_status() == status]
 
     return jsonify([a.to_dict() for a in items])
 
@@ -529,7 +644,9 @@ def create_accessory():
         storage_location=data.get('storage_location', ''),
         photo=photo_filename,
         last_worn_date=data.get('last_worn_date', ''),
-        wear_count=int(data.get('wear_count', 0))
+        wear_count=int(data.get('wear_count', 0)),
+        next_maintenance_date=data.get('next_maintenance_date', ''),
+        maintenance_cycle_days=int(data.get('maintenance_cycle_days', 0))
     )
     db.session.add(acc)
     db.session.commit()
@@ -581,6 +698,10 @@ def update_accessory(aid):
         acc.last_worn_date = data['last_worn_date']
     if 'wear_count' in data:
         acc.wear_count = int(data['wear_count'])
+    if 'next_maintenance_date' in data:
+        acc.next_maintenance_date = data['next_maintenance_date']
+    if 'maintenance_cycle_days' in data:
+        acc.maintenance_cycle_days = int(data['maintenance_cycle_days'])
 
     db.session.commit()
     return jsonify(acc.to_dict())
@@ -630,9 +751,11 @@ def get_recommendation():
     style = request.args.get('style', '')
     occasion = request.args.get('occasion', '')
 
-    necklaces = Accessory.query.filter_by(category='项链').all()
-    earrings = Accessory.query.filter_by(category='耳环').all()
-    bracelets = Accessory.query.filter_by(category='手链').all()
+    all_acc = Accessory.query.all()
+    available = [a for a in all_acc if a.get_status() == 'in_stock']
+    necklaces = [a for a in available if a.category == '项链']
+    earrings = [a for a in available if a.category == '耳环']
+    bracelets = [a for a in available if a.category == '手链']
 
     def score_item(acc):
         if not acc:
@@ -1165,6 +1288,70 @@ def get_statistics():
             })
     upcoming_trips.sort(key=lambda x: x['start_date'])
 
+    all_loans = LoanRecord.query.all()
+    active_loans = [l for l in all_loans if not l.returned]
+    overdue_loans = []
+    for l in active_loans:
+        if l.due_date:
+            try:
+                due = datetime.strptime(l.due_date, '%Y-%m-%d')
+                if today > due:
+                    overdue_loans.append(l)
+            except:
+                pass
+
+    all_maint = MaintenanceRecord.query.all()
+    active_maint = [m for m in all_maint if not m.completed]
+    completed_maint = [m for m in all_maint if m.completed]
+    total_maint_cost = sum(m.cost for m in completed_maint)
+
+    from collections import defaultdict
+    monthly_cost = defaultdict(float)
+    for m in completed_maint:
+        if m.completed_date:
+            try:
+                d = datetime.strptime(m.completed_date, '%Y-%m-%d')
+                key = d.strftime('%Y-%m')
+                monthly_cost[key] += m.cost
+            except:
+                pass
+    cost_trend = sorted([{'month': k, 'cost': round(v, 2)} for k, v in monthly_cost.items()])
+
+    repair_count = defaultdict(int)
+    for m in all_maint:
+        if m.record_type == 'repair':
+            repair_count[m.accessory_id] += 1
+    high_risk = []
+    for aid, cnt in repair_count.items():
+        if cnt >= 2:
+            acc = Accessory.query.get(aid)
+            if acc:
+                d = acc.to_dict()
+                d['repair_count'] = cnt
+                total_cost = sum(m.cost for m in all_maint if m.accessory_id == aid)
+                d['total_repair_cost'] = round(total_cost, 2)
+                high_risk.append(d)
+    high_risk.sort(key=lambda x: -x['repair_count'])
+
+    maintenance_reminders = []
+    future_30d = (today + timedelta(days=30)).strftime('%Y-%m-%d')
+    today_str = today.strftime('%Y-%m-%d')
+    for acc in all_acc:
+        if acc.next_maintenance_date:
+            try:
+                nd = datetime.strptime(acc.next_maintenance_date, '%Y-%m-%d')
+                if today_str <= acc.next_maintenance_date <= future_30d:
+                    d = acc.to_dict()
+                    d['days_until'] = (nd - today).days
+                    maintenance_reminders.append(d)
+            except:
+                pass
+    maintenance_reminders.sort(key=lambda x: x['next_maintenance_date'])
+
+    status_distribution = defaultdict(int)
+    for acc in all_acc:
+        status_distribution[acc.get_status()] += 1
+
     return jsonify({
         'total': total,
         'category_distribution': [
@@ -1187,7 +1374,258 @@ def get_statistics():
         'trip_unique_count': len(total_trip_unique_acc),
         'trip_color_distribution': trip_color_distribution,
         'upcoming_trips': upcoming_trips,
-        'unpacked_reminders': unpacked_reminders[:50]
+        'unpacked_reminders': unpacked_reminders[:50],
+        'status_distribution': dict(status_distribution),
+        'active_loan_count': len(active_loans),
+        'overdue_loan_count': len(overdue_loans),
+        'active_maintenance_count': len([m for m in active_maint if m.record_type == 'maintenance']),
+        'active_repair_count': len([m for m in active_maint if m.record_type == 'repair']),
+        'total_maintenance_cost': round(total_maint_cost, 2),
+        'cost_trend': cost_trend,
+        'high_risk_accessories': high_risk,
+        'maintenance_reminders_30d': maintenance_reminders
+    })
+
+
+@app.route('/api/loans', methods=['GET'])
+def get_loans():
+    status = request.args.get('status', '')
+    query = LoanRecord.query
+    if status == 'active':
+        query = query.filter_by(returned=False)
+    elif status == 'returned':
+        query = query.filter_by(returned=True)
+    elif status == 'overdue':
+        today = datetime.now().strftime('%Y-%m-%d')
+        query = query.filter_by(returned=False).filter(LoanRecord.due_date < today)
+    loans = query.order_by(LoanRecord.created_at.desc()).all()
+    return jsonify([l.to_dict() for l in loans])
+
+
+@app.route('/api/loans', methods=['POST'])
+def create_loan():
+    data = request.get_json() or {}
+    acc = Accessory.query.get_or_404(data.get('accessory_id'))
+    if acc.get_status() != 'in_stock':
+        return jsonify({'error': '该饰品当前状态不支持借出'}), 400
+    loan = LoanRecord(
+        accessory_id=data.get('accessory_id'),
+        borrower_name=data.get('borrower_name', ''),
+        borrower_phone=data.get('borrower_phone', ''),
+        borrower_contact=data.get('borrower_contact', ''),
+        loan_date=data.get('loan_date', datetime.now().strftime('%Y-%m-%d')),
+        due_date=data.get('due_date', ''),
+        deposit=float(data.get('deposit', 0)),
+        notes=data.get('notes', '')
+    )
+    if not loan.borrower_name:
+        return jsonify({'error': '请填写借用人姓名'}), 400
+    db.session.add(loan)
+    db.session.commit()
+    return jsonify(loan.to_dict()), 201
+
+
+@app.route('/api/loans/<int:lid>/return', methods=['POST'])
+def return_loan(lid):
+    loan = LoanRecord.query.get_or_404(lid)
+    data = request.get_json() or {}
+    loan.returned = True
+    loan.return_date = data.get('return_date', datetime.now().strftime('%Y-%m-%d'))
+    if 'deposit_returned' in data:
+        loan.deposit_returned = bool(data['deposit_returned'])
+    else:
+        loan.deposit_returned = True
+    db.session.commit()
+    return jsonify(loan.to_dict())
+
+
+@app.route('/api/loans/<int:lid>', methods=['PUT'])
+def update_loan(lid):
+    loan = LoanRecord.query.get_or_404(lid)
+    data = request.get_json() or {}
+    fields = ['borrower_name', 'borrower_phone', 'borrower_contact', 'loan_date', 'due_date', 'deposit', 'notes']
+    for f in fields:
+        if f in data:
+            if f == 'deposit':
+                setattr(loan, f, float(data[f]))
+            else:
+                setattr(loan, f, data[f])
+    db.session.commit()
+    return jsonify(loan.to_dict())
+
+
+@app.route('/api/loans/<int:lid>', methods=['DELETE'])
+def delete_loan(lid):
+    loan = LoanRecord.query.get_or_404(lid)
+    db.session.delete(loan)
+    db.session.commit()
+    return jsonify({'message': '已删除'})
+
+
+@app.route('/api/maintenance', methods=['GET'])
+def get_maintenance():
+    status = request.args.get('status', '')
+    record_type = request.args.get('type', '')
+    query = MaintenanceRecord.query
+    if status == 'active':
+        query = query.filter_by(completed=False)
+    elif status == 'completed':
+        query = query.filter_by(completed=True)
+    if record_type:
+        query = query.filter_by(record_type=record_type)
+    records = query.order_by(MaintenanceRecord.created_at.desc()).all()
+    return jsonify([r.to_dict() for r in records])
+
+
+@app.route('/api/maintenance', methods=['POST'])
+def create_maintenance():
+    data = request.get_json() or {}
+    acc = Accessory.query.get_or_404(data.get('accessory_id'))
+    current_status = acc.get_status()
+    if current_status in ['lent', 'overdue']:
+        return jsonify({'error': '该饰品已借出，无法送修'}), 400
+    if current_status in ['maintenance', 'repair']:
+        return jsonify({'error': '该饰品已在保养/维修中'}), 400
+    record = MaintenanceRecord(
+        accessory_id=data.get('accessory_id'),
+        record_type=data.get('record_type', 'maintenance'),
+        title=data.get('title', ''),
+        description=data.get('description', ''),
+        cost=float(data.get('cost', 0)),
+        shop=data.get('shop', ''),
+        sent_date=data.get('sent_date', datetime.now().strftime('%Y-%m-%d')),
+        notes=data.get('notes', '')
+    )
+    if not record.title:
+        return jsonify({'error': '请填写标题'}), 400
+    db.session.add(record)
+    db.session.commit()
+    return jsonify(record.to_dict()), 201
+
+
+@app.route('/api/maintenance/<int:mid>/complete', methods=['POST'])
+def complete_maintenance(mid):
+    record = MaintenanceRecord.query.get_or_404(mid)
+    data = request.get_json() or {}
+    record.completed = True
+    record.completed_date = data.get('completed_date', datetime.now().strftime('%Y-%m-%d'))
+    if 'cost' in data:
+        record.cost = float(data['cost'])
+    if 'notes' in data:
+        record.notes = data['notes']
+    db.session.commit()
+    return jsonify(record.to_dict())
+
+
+@app.route('/api/maintenance/<int:mid>', methods=['PUT'])
+def update_maintenance(mid):
+    record = MaintenanceRecord.query.get_or_404(mid)
+    data = request.get_json() or {}
+    fields = ['record_type', 'title', 'description', 'shop', 'sent_date', 'notes']
+    for f in fields:
+        if f in data:
+            setattr(record, f, data[f])
+    if 'cost' in data:
+        record.cost = float(data['cost'])
+    db.session.commit()
+    return jsonify(record.to_dict())
+
+
+@app.route('/api/maintenance/<int:mid>', methods=['DELETE'])
+def delete_maintenance(mid):
+    record = MaintenanceRecord.query.get_or_404(mid)
+    db.session.delete(record)
+    db.session.commit()
+    return jsonify({'message': '已删除'})
+
+
+@app.route('/api/accessories/<int:aid>/set-maintenance', methods=['POST'])
+def set_maintenance_date(aid):
+    acc = Accessory.query.get_or_404(aid)
+    data = request.get_json() or {}
+    if 'next_maintenance_date' in data:
+        acc.next_maintenance_date = data['next_maintenance_date']
+    if 'maintenance_cycle_days' in data:
+        acc.maintenance_cycle_days = int(data['maintenance_cycle_days'])
+    db.session.commit()
+    return jsonify(acc.to_dict())
+
+
+@app.route('/api/tracking/summary', methods=['GET'])
+def get_tracking_summary():
+    today = datetime.now()
+    today_str = today.strftime('%Y-%m-%d')
+
+    all_loans = LoanRecord.query.all()
+    active_loans = [l for l in all_loans if not l.returned]
+    overdue_loans = []
+    for l in active_loans:
+        if l.due_date:
+            try:
+                due = datetime.strptime(l.due_date, '%Y-%m-%d')
+                if today > due:
+                    overdue_loans.append(l)
+            except:
+                pass
+
+    all_maint = MaintenanceRecord.query.all()
+    active_maint = [m for m in all_maint if not m.completed]
+    completed_maint = [m for m in all_maint if m.completed]
+
+    total_maint_cost = sum(m.cost for m in completed_maint)
+
+    from collections import defaultdict
+    monthly_cost = defaultdict(float)
+    for m in completed_maint:
+        if m.completed_date:
+            try:
+                d = datetime.strptime(m.completed_date, '%Y-%m-%d')
+                key = d.strftime('%Y-%m')
+                monthly_cost[key] += m.cost
+            except:
+                pass
+    cost_trend = sorted([{'month': k, 'cost': round(v, 2)} for k, v in monthly_cost.items()])
+
+    repair_count = defaultdict(int)
+    for m in all_maint:
+        if m.record_type == 'repair':
+            repair_count[m.accessory_id] += 1
+    high_risk = []
+    for aid, cnt in repair_count.items():
+        if cnt >= 2:
+            acc = Accessory.query.get(aid)
+            if acc:
+                d = acc.to_dict()
+                d['repair_count'] = cnt
+                total_cost = sum(m.cost for m in all_maint if m.accessory_id == aid)
+                d['total_repair_cost'] = round(total_cost, 2)
+                high_risk.append(d)
+    high_risk.sort(key=lambda x: -x['repair_count'])
+
+    maintenance_reminders = []
+    future_30d = (today + timedelta(days=30)).strftime('%Y-%m-%d')
+    all_acc = Accessory.query.all()
+    for acc in all_acc:
+        if acc.next_maintenance_date:
+            try:
+                nd = datetime.strptime(acc.next_maintenance_date, '%Y-%m-%d')
+                if today_str <= acc.next_maintenance_date <= future_30d:
+                    d = acc.to_dict()
+                    d['days_until'] = (nd - today).days
+                    maintenance_reminders.append(d)
+            except:
+                pass
+    maintenance_reminders.sort(key=lambda x: x['next_maintenance_date'])
+
+    return jsonify({
+        'active_loan_count': len(active_loans),
+        'overdue_loan_count': len(overdue_loans),
+        'active_maintenance_count': len([m for m in active_maint if m.record_type == 'maintenance']),
+        'active_repair_count': len([m for m in active_maint if m.record_type == 'repair']),
+        'total_maintenance_cost': round(total_maint_cost, 2),
+        'cost_trend': cost_trend,
+        'high_risk_accessories': high_risk,
+        'maintenance_reminders_30d': maintenance_reminders
     })
 
 
@@ -1198,12 +1636,35 @@ def get_meta():
         'materials': ['黄金', '白金', '玫瑰金', '纯银', '合金', '珍珠', '水晶', '宝石', '玉石', '布料', '皮革', '其他'],
         'color_families': ['金色', '银色', '玫瑰金', '白色', '黑色', '红色', '粉色', '蓝色', '绿色', '紫色', '米色', '棕色', '灰色', '黄色'],
         'styles': ['优雅', '休闲', '复古', '简约', '华丽', '波西米亚', '甜美', '民族风', '商务', '运动'],
-        'occasions': ['日常', '工作', '约会', '派对', '婚礼', '晚宴', '旅行', '运动', '节日', '正式场合']
+        'occasions': ['日常', '工作', '约会', '派对', '婚礼', '晚宴', '旅行', '运动', '节日', '正式场合'],
+        'accessory_statuses': [
+            {'value': 'in_stock', 'label': '在库'},
+            {'value': 'lent', 'label': '已借出'},
+            {'value': 'overdue', 'label': '逾期未还'},
+            {'value': 'maintenance', 'label': '保养中'},
+            {'value': 'repair', 'label': '维修中'}
+        ]
     })
 
 
 with app.app_context():
     db.create_all()
+
+    from sqlalchemy import inspect, text
+    inspector = inspect(db.engine)
+    existing_cols = [c['name'] for c in inspector.get_columns('accessories')]
+    if 'next_maintenance_date' not in existing_cols:
+        try:
+            db.session.execute(text("ALTER TABLE accessories ADD COLUMN next_maintenance_date VARCHAR(20) DEFAULT ''"))
+            db.session.commit()
+        except:
+            pass
+    if 'maintenance_cycle_days' not in existing_cols:
+        try:
+            db.session.execute(text("ALTER TABLE accessories ADD COLUMN maintenance_cycle_days INTEGER DEFAULT 0"))
+            db.session.commit()
+        except:
+            pass
 
     if Accessory.query.count() == 0:
         sample_data = [

@@ -25,6 +25,9 @@
         <el-select v-model="filters.occasion" placeholder="场合" clearable @change="loadData">
           <el-option v-for="o in meta.occasions" :key="o" :label="o" :value="o" />
         </el-select>
+        <el-select v-model="filters.status" placeholder="状态" clearable @change="loadData">
+          <el-option v-for="s in meta.accessory_statuses" :key="s.value" :label="s.label" :value="s.value" />
+        </el-select>
         <el-input v-model="searchText" placeholder="搜索名称" clearable style="width: 200px;" @input="loadData" />
       </div>
 
@@ -41,6 +44,15 @@
               <el-icon :size="40"><Picture /></el-icon>
             </div>
             <span class="acc-category">{{ acc.category }}</span>
+            <el-tag
+              v-if="statusMap[acc.status]"
+              :type="statusMap[acc.status].type"
+              effect="light"
+              size="small"
+              class="acc-status"
+            >
+              {{ statusMap[acc.status].label }}
+            </el-tag>
           </div>
           <div class="acc-info">
             <h4 class="acc-name">{{ acc.name }}</h4>
@@ -64,7 +76,12 @@
             </div>
           </div>
           <div class="acc-actions">
-            <el-button size="small" type="success" @click="handleWear(acc)">
+            <el-button
+              size="small"
+              type="success"
+              :disabled="acc.status !== 'in_stock'"
+              @click="handleWear(acc)"
+            >
               <el-icon><Check /></el-icon>佩戴
             </el-button>
             <el-button size="small" @click="openDialog(acc)">
@@ -170,10 +187,18 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getMeta, getAccessories, createAccessory, updateAccessory, deleteAccessory, wearAccessory } from '@/api'
 
-const meta = ref({ categories: [], materials: [], color_families: [], styles: [], occasions: [] })
+const meta = ref({ categories: [], materials: [], color_families: [], styles: [], occasions: [], accessory_statuses: [] })
 const list = ref([])
 const searchText = ref('')
-const filters = reactive({ category: '', color_family: '', style: '', occasion: '' })
+const filters = reactive({ category: '', color_family: '', style: '', occasion: '', status: '' })
+
+const statusMap = {
+  in_stock: { label: '在库', type: 'success' },
+  lent: { label: '已借出', type: 'primary' },
+  overdue: { label: '逾期未还', type: 'danger' },
+  maintenance: { label: '保养中', type: 'warning' },
+  repair: { label: '维修中', type: 'warning' }
+}
 
 const colorMap = {
   '金色': '#d4a855', '银色': '#c0c0c0', '玫瑰金': '#e8b4a0', '白色': '#f8f5f0',
@@ -335,6 +360,12 @@ onMounted(() => {
   padding: 2px 10px;
   border-radius: 10px;
   font-size: 12px;
+}
+
+.acc-status {
+  position: absolute;
+  top: 10px;
+  right: 10px;
 }
 
 .acc-info {
