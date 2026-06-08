@@ -437,7 +437,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Suitcase, Plus, Location, Calendar, Sunny, ArrowRight, ArrowLeft, Edit, Refresh, Download, Delete, Box, Collection, RefreshRight, MagicStick, PartlyCloudy, Present, Star, Select, Picture, Warning, SuccessFilled, DocumentCopy, Check } from '@element-plus/icons-vue'
 import {
@@ -640,9 +640,33 @@ const downloadExport = () => {
   URL.revokeObjectURL(url)
 }
 
+const handleViewTrip = (e) => {
+  const id = e.detail?.id
+  if (!id) return
+  if (!trips.value.length) {
+    loadTrips().then(() => {
+      const trip = trips.value.find(t => t.id === id)
+      if (trip) viewTrip(trip)
+    })
+  } else {
+    const trip = trips.value.find(t => t.id === id)
+    if (trip) viewTrip(trip)
+    else {
+      getTrip(id).then(data => {
+        currentTrip.value = data
+      })
+    }
+  }
+}
+
 onMounted(() => {
   loadMeta()
   loadTrips()
+  window.addEventListener('view-trip', handleViewTrip)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('view-trip', handleViewTrip)
 })
 </script>
 

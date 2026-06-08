@@ -351,8 +351,6 @@ def generate_trip_packing(trip):
                     reason_parts.append(f'{trip.style}风格匹配')
                 if day_occasion and day_occasion in (chosen.occasions.split(',') if chosen.occasions else []):
                     reason_parts.append(f'适合{day_occasion}场合')
-                if reuse_count > 1:
-                    reason_parts.append(f'本次行程复用第{reuse_count}次')
                 reason = '；'.join(reason_parts) if reason_parts else '精选推荐单品'
 
                 day_items.append({
