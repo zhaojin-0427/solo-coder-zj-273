@@ -91,6 +91,92 @@ class OutfitFavorite(db.Model):
         }
 
 
+class TripPlan(db.Model):
+    __tablename__ = 'trip_plans'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    destination = db.Column(db.String(100), default='')
+    start_date = db.Column(db.String(20), default='')
+    end_date = db.Column(db.String(20), default='')
+    temp_min = db.Column(db.Integer, default=20)
+    temp_max = db.Column(db.Integer, default=28)
+    main_occasion = db.Column(db.String(50), default='')
+    main_color = db.Column(db.String(50), default='')
+    style = db.Column(db.String(50), default='')
+    notes = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(20), default='planning')
+
+    days = db.relationship('TripDay', backref='trip', cascade='all, delete-orphan')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'destination': self.destination,
+            'start_date': self.start_date,
+            'end_date': self.end_date,
+            'temp_min': self.temp_min,
+            'temp_max': self.temp_max,
+            'main_occasion': self.main_occasion,
+            'main_color': self.main_color,
+            'style': self.style,
+            'notes': self.notes,
+            'status': self.status,
+            'created_at': self.created_at.strftime('%Y-%m-%d') if self.created_at else '',
+            'days': [d.to_dict() for d in sorted(self.days, key=lambda x: x.day_index)]
+        }
+
+
+class TripDay(db.Model):
+    __tablename__ = 'trip_days'
+    id = db.Column(db.Integer, primary_key=True)
+    trip_id = db.Column(db.Integer, db.ForeignKey('trip_plans.id'), nullable=False)
+    day_index = db.Column(db.Integer, default=0)
+    date = db.Column(db.String(20), default='')
+    occasion = db.Column(db.String(50), default='')
+    weather = db.Column(db.String(50), default='')
+    generated = db.Column(db.Boolean, default=False)
+
+    items = db.relationship('TripItem', backref='day', cascade='all, delete-orphan')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'day_index': self.day_index,
+            'date': self.date,
+            'occasion': self.occasion,
+            'weather': self.weather,
+            'generated': self.generated,
+            'items': [i.to_dict() for i in self.items]
+        }
+
+
+class TripItem(db.Model):
+    __tablename__ = 'trip_items'
+    id = db.Column(db.Integer, primary_key=True)
+    day_id = db.Column(db.Integer, db.ForeignKey('trip_days.id'), nullable=False)
+    accessory_id = db.Column(db.Integer, db.ForeignKey('accessories.id'), nullable=False)
+    item_type = db.Column(db.String(20), default='recommended')
+    packed = db.Column(db.Boolean, default=False)
+    is_spare = db.Column(db.Boolean, default=False)
+    reason = db.Column(db.String(200), default='')
+    reuse_count = db.Column(db.Integer, default=0)
+
+    def to_dict(self):
+        acc = Accessory.query.get(self.accessory_id)
+        return {
+            'id': self.id,
+            'accessory_id': self.accessory_id,
+            'item_type': self.item_type,
+            'packed': self.packed,
+            'is_spare': self.is_spare,
+            'reason': self.reason,
+            'reuse_count': self.reuse_count,
+            'accessory': acc.to_dict() if acc else None
+        }
+
+
 COLOR_COMBINATIONS = {
     '金色': ['白色', '黑色', '红色', '绿色', '蓝色', '紫色', '米色'],
     '银色': ['白色', '黑色', '蓝色', '紫色', '粉色', '灰色'],
@@ -181,6 +267,196 @@ def generate_reason(necklace, earring, bracelet, main_color, style, occasion):
         reasons.append("整体搭配简洁大方，适合日常佩戴")
 
     return '；'.join(reasons) + '。'
+
+
+def get_trip_item_score(acc, main_color, style, occasion, used_categories_today, trip_used_ids):
+    score = 0
+    score += get_color_score(acc.color_family, main_color) * 2
+    score += get_style_score(acc.style, style) * 1.5
+    score += get_occasion_score(acc, occasion)
+
+    if acc.id in trip_used_ids:
+        reuse_times = trip_used_ids.count(acc.id)
+        score += reuse_times * 3
+    else:
+        score += 2
+
+    if acc.category in used_categories_today:
+        score -= 50
+
+    if acc.wear_count <= 3:
+        score += 4
+    elif acc.wear_count <= 8:
+        score += 2
+    elif acc.wear_count >= 15:
+        score -= 2
+
+    return score
+
+
+def generate_trip_packing(trip):
+    from datetime import datetime, timedelta
+
+    try:
+        start = datetime.strptime(trip.start_date, '%Y-%m-%d')
+        end = datetime.strptime(trip.end_date, '%Y-%m-%d')
+        total_days = (end - start).days + 1
+    except:
+        total_days = max(1, len(trip.days))
+        start = None
+
+    all_accessories = Accessory.query.all()
+    necklaces = [a for a in all_accessories if a.category == '项链']
+    earrings = [a for a in all_accessories if a.category == '耳环']
+    bracelets = [a for a in all_accessories if a.category == '手链']
+    other_acc = [a for a in all_accessories if a.category not in ['项链', '耳环', '手链']]
+
+    trip_used_ids = []
+    day_plans = []
+
+    for day_idx in range(total_days):
+        if start:
+            day_date = (start + timedelta(days=day_idx)).strftime('%Y-%m-%d')
+        else:
+            day_date = ''
+
+        day_occasion = trip.main_occasion
+        used_categories_today = set()
+        day_items = []
+
+        categories_to_pick = [('项链', necklaces), ('耳环', earrings), ('手链', bracelets)]
+        for cat_name, cat_items in categories_to_pick:
+            if not cat_items:
+                continue
+
+            scored = []
+            for acc in cat_items:
+                s = get_trip_item_score(acc, trip.main_color, trip.style, day_occasion, used_categories_today, trip_used_ids)
+                scored.append((s, acc))
+            scored.sort(key=lambda x: -x[0])
+
+            if scored:
+                chosen = scored[0][1]
+                used_categories_today.add(chosen.category)
+                if chosen.id in trip_used_ids:
+                    reuse_count = trip_used_ids.count(chosen.id) + 1
+                else:
+                    reuse_count = 1
+                trip_used_ids.append(chosen.id)
+
+                reason_parts = []
+                if chosen.color_family == trip.main_color or chosen.color_family in COLOR_COMBINATIONS.get(trip.main_color, []):
+                    reason_parts.append(f'与主色调{trip.main_color}协调')
+                if chosen.style == trip.style or chosen.style in STYLE_MATCH.get(trip.style, []):
+                    reason_parts.append(f'{trip.style}风格匹配')
+                if day_occasion and day_occasion in (chosen.occasions.split(',') if chosen.occasions else []):
+                    reason_parts.append(f'适合{day_occasion}场合')
+                if reuse_count > 1:
+                    reason_parts.append(f'本次行程复用第{reuse_count}次')
+                reason = '；'.join(reason_parts) if reason_parts else '精选推荐单品'
+
+                day_items.append({
+                    'accessory': chosen,
+                    'item_type': 'recommended',
+                    'is_spare': False,
+                    'reason': reason,
+                    'reuse_count': reuse_count
+                })
+
+        spare_candidates = []
+        for acc in other_acc + necklaces + earrings + bracelets:
+            if acc.id not in [i['accessory'].id for i in day_items]:
+                s = get_trip_item_score(acc, trip.main_color, trip.style, day_occasion, set(), trip_used_ids)
+                spare_candidates.append((s, acc))
+        spare_candidates.sort(key=lambda x: -x[0])
+
+        for s, acc in spare_candidates[:2]:
+            if acc.id in trip_used_ids:
+                reuse_count = trip_used_ids.count(acc.id) + 1
+            else:
+                reuse_count = 1
+            trip_used_ids.append(acc.id)
+            day_items.append({
+                'accessory': acc,
+                'item_type': 'spare',
+                'is_spare': True,
+                'reason': f'备用单品：{acc.style}风格{acc.color_family}色系百搭款',
+                'reuse_count': reuse_count
+            })
+
+        day_plans.append({
+            'day_index': day_idx,
+            'date': day_date,
+            'occasion': day_occasion,
+            'weather': f'{trip.temp_min}°C~{trip.temp_max}°C',
+            'items': day_items
+        })
+
+    return day_plans
+
+
+def compute_missing_risk(trip):
+    all_ids = []
+    for day in trip.days:
+        for item in day.items:
+            all_ids.append(item.accessory_id)
+
+    from collections import Counter
+    id_counts = Counter(all_ids)
+    total_days = len(trip.days) if trip.days else 1
+
+    risks = []
+    for acc_id, count in id_counts.items():
+        acc = Accessory.query.get(acc_id)
+        if not acc:
+            continue
+        usage_ratio = count / total_days
+        risk_level = '低'
+        risk_score = 0
+        if usage_ratio >= 0.8:
+            risk_level = '高'
+            risk_score = 3
+        elif usage_ratio >= 0.5:
+            risk_level = '中'
+            risk_score = 2
+        elif usage_ratio >= 0.3:
+            risk_level = '低'
+            risk_score = 1
+        if risk_score > 0:
+            risks.append({
+                'accessory': acc.to_dict(),
+                'usage_days': count,
+                'total_days': total_days,
+                'usage_ratio': round(usage_ratio * 100, 1),
+                'risk_level': risk_level,
+                'risk_score': risk_score,
+                'suggestion': f'该饰品预计使用{count}天，占行程{round(usage_ratio * 100, 1)}%，建议携带同款备用或做好保养' if risk_level != '低' else '使用率适中'
+            })
+    risks.sort(key=lambda x: -x['risk_score'])
+    return risks
+
+
+def compute_storage_locations(trip):
+    loc_map = {}
+    for day in trip.days:
+        for item in day.items:
+            acc = Accessory.query.get(item.accessory_id)
+            if not acc:
+                continue
+            loc = acc.storage_location or '未标记位置'
+            if loc not in loc_map:
+                loc_map[loc] = set()
+            loc_map[loc].add(acc.id)
+    result = []
+    for loc, acc_ids in loc_map.items():
+        items = [Accessory.query.get(aid).to_dict() for aid in acc_ids if Accessory.query.get(aid)]
+        result.append({
+            'location': loc,
+            'count': len(items),
+            'accessories': items
+        })
+    result.sort(key=lambda x: -x['count'])
+    return result
 
 
 @app.route('/')
@@ -483,6 +759,279 @@ def delete_favorite(fid):
     return jsonify({'message': '已删除'})
 
 
+@app.route('/api/trips', methods=['GET'])
+def get_trips():
+    status = request.args.get('status', '')
+    query = TripPlan.query
+    if status:
+        query = query.filter(TripPlan.status == status)
+    trips = query.order_by(TripPlan.created_at.desc()).all()
+    return jsonify([t.to_dict() for t in trips])
+
+
+@app.route('/api/trips/<int:tid>', methods=['GET'])
+def get_trip(tid):
+    trip = TripPlan.query.get_or_404(tid)
+    data = trip.to_dict()
+    data['missing_risks'] = compute_missing_risk(trip)
+    data['storage_locations'] = compute_storage_locations(trip)
+
+    unique_ids = set()
+    reuse_stats = {}
+    total_items = 0
+    packed_items = 0
+    for day in trip.days:
+        for item in day.items:
+            total_items += 1
+            if item.packed:
+                packed_items += 1
+            unique_ids.add(item.accessory_id)
+            if item.accessory_id not in reuse_stats:
+                reuse_stats[item.accessory_id] = 0
+            reuse_stats[item.accessory_id] = max(reuse_stats[item.accessory_id], item.reuse_count)
+
+    total_reuses = sum(v for v in reuse_stats.values() if v > 1)
+    data['packing_rate'] = round(packed_items / max(total_items, 1) * 100, 1)
+    data['packed_count'] = packed_items
+    data['total_item_count'] = total_items
+    data['unique_accessory_count'] = len(unique_ids)
+    data['reuse_rate'] = round(len([v for v in reuse_stats.values() if v > 1]) / max(len(unique_ids), 1) * 100, 1)
+    data['total_reuses'] = total_reuses
+
+    return jsonify(data)
+
+
+@app.route('/api/trips', methods=['POST'])
+def create_trip():
+    data = request.get_json() or {}
+    trip = TripPlan(
+        name=data.get('name', f'行程_{datetime.now().strftime("%Y%m%d")}'),
+        destination=data.get('destination', ''),
+        start_date=data.get('start_date', ''),
+        end_date=data.get('end_date', ''),
+        temp_min=int(data.get('temp_min', 20)),
+        temp_max=int(data.get('temp_max', 28)),
+        main_occasion=data.get('main_occasion', ''),
+        main_color=data.get('main_color', ''),
+        style=data.get('style', ''),
+        notes=data.get('notes', ''),
+        status=data.get('status', 'planning')
+    )
+    db.session.add(trip)
+    db.session.flush()
+
+    day_plans = generate_trip_packing(trip)
+    for dp in day_plans:
+        day = TripDay(
+            trip_id=trip.id,
+            day_index=dp['day_index'],
+            date=dp['date'],
+            occasion=dp['occasion'],
+            weather=dp['weather'],
+            generated=True
+        )
+        db.session.add(day)
+        db.session.flush()
+        for it in dp['items']:
+            item = TripItem(
+                day_id=day.id,
+                accessory_id=it['accessory'].id,
+                item_type=it['item_type'],
+                is_spare=it['is_spare'],
+                reason=it['reason'],
+                reuse_count=it['reuse_count'],
+                packed=False
+            )
+            db.session.add(item)
+
+    db.session.commit()
+    return jsonify(trip.to_dict()), 201
+
+
+@app.route('/api/trips/<int:tid>', methods=['PUT'])
+def update_trip(tid):
+    trip = TripPlan.query.get_or_404(tid)
+    data = request.get_json() or {}
+    fields = ['name', 'destination', 'start_date', 'end_date', 'main_occasion', 'main_color', 'style', 'notes', 'status']
+    for f in fields:
+        if f in data:
+            setattr(trip, f, data[f])
+    if 'temp_min' in data:
+        trip.temp_min = int(data['temp_min'])
+    if 'temp_max' in data:
+        trip.temp_max = int(data['temp_max'])
+    db.session.commit()
+    return jsonify(trip.to_dict())
+
+
+@app.route('/api/trips/<int:tid>', methods=['DELETE'])
+def delete_trip(tid):
+    trip = TripPlan.query.get_or_404(tid)
+    db.session.delete(trip)
+    db.session.commit()
+    return jsonify({'message': '已删除'})
+
+
+@app.route('/api/trips/<int:tid>/regenerate', methods=['POST'])
+def regenerate_trip(tid):
+    trip = TripPlan.query.get_or_404(tid)
+
+    for day in trip.days:
+        for item in day.items:
+            db.session.delete(item)
+        db.session.delete(day)
+    db.session.flush()
+
+    day_plans = generate_trip_packing(trip)
+    for dp in day_plans:
+        day = TripDay(
+            trip_id=trip.id,
+            day_index=dp['day_index'],
+            date=dp['date'],
+            occasion=dp['occasion'],
+            weather=dp['weather'],
+            generated=True
+        )
+        db.session.add(day)
+        db.session.flush()
+        for it in dp['items']:
+            item = TripItem(
+                day_id=day.id,
+                accessory_id=it['accessory'].id,
+                item_type=it['item_type'],
+                is_spare=it['is_spare'],
+                reason=it['reason'],
+                reuse_count=it['reuse_count'],
+                packed=False
+            )
+            db.session.add(item)
+
+    db.session.commit()
+    return jsonify(trip.to_dict())
+
+
+@app.route('/api/trips/items/<int:iid>/pack', methods=['POST'])
+def toggle_pack_item(iid):
+    item = TripItem.query.get_or_404(iid)
+    data = request.get_json() or {}
+    if 'packed' in data:
+        item.packed = bool(data['packed'])
+    else:
+        item.packed = not item.packed
+    db.session.commit()
+    return jsonify(item.to_dict())
+
+
+@app.route('/api/trips/<int:tid>/pack-all', methods=['POST'])
+def pack_all_items(tid):
+    trip = TripPlan.query.get_or_404(tid)
+    for day in trip.days:
+        for item in day.items:
+            item.packed = True
+    db.session.commit()
+    return jsonify({'message': '全部标记已打包', 'packing_rate': 100})
+
+
+@app.route('/api/trips/<int:tid>/save-favorite', methods=['POST'])
+def save_trip_day_as_favorite(tid):
+    data = request.get_json() or {}
+    day_id = data.get('day_id')
+    if not day_id:
+        return jsonify({'error': '缺少 day_id'}), 400
+    day = TripDay.query.get_or_404(day_id)
+    necklace_id = None
+    earring_id = None
+    bracelet_id = None
+    for item in day.items:
+        if item.is_spare:
+            continue
+        acc = Accessory.query.get(item.accessory_id)
+        if not acc:
+            continue
+        if acc.category == '项链' and not necklace_id:
+            necklace_id = acc.id
+        elif acc.category == '耳环' and not earring_id:
+            earring_id = acc.id
+        elif acc.category == '手链' and not bracelet_id:
+            bracelet_id = acc.id
+
+    trip = TripPlan.query.get(tid)
+    fav = OutfitFavorite(
+        name=data.get('name', f'{trip.name if trip else "行程"}搭配'),
+        occasion=day.occasion or (trip.main_occasion if trip else ''),
+        necklace_id=necklace_id,
+        earring_id=earring_id,
+        bracelet_id=bracelet_id,
+        main_color=trip.main_color if trip else '',
+        style=trip.style if trip else '',
+        notes=data.get('notes', f'来自行程「{trip.name if trip else ""}」第{day.day_index + 1}天搭配')
+    )
+    db.session.add(fav)
+    db.session.commit()
+    return jsonify(fav.to_dict()), 201
+
+
+@app.route('/api/trips/<int:tid>/export', methods=['GET'])
+def export_trip(tid):
+    trip = TripPlan.query.get_or_404(tid)
+    lines = []
+    lines.append(f'📋 行程饰品打包清单：{trip.name}')
+    lines.append(f'📍 目的地：{trip.destination or "未指定"}')
+    lines.append(f'📅 日期：{trip.start_date} ~ {trip.end_date}')
+    lines.append(f'🌡 温度：{trip.temp_min}°C ~ {trip.temp_max}°C')
+    lines.append(f'🎨 主色调：{trip.main_color or "未指定"}')
+    lines.append(f'✨ 风格：{trip.style or "未指定"}')
+    if trip.main_occasion:
+        lines.append(f'🎭 主要场合：{trip.main_occasion}')
+    lines.append('')
+    lines.append('=' * 40)
+
+    total_items = 0
+    packed_count = 0
+    for day in trip.days:
+        lines.append(f'\n📅 第 {day.day_index + 1} 天 ({day.date or ""})')
+        if day.occasion:
+            lines.append(f'   🎭 场合：{day.occasion}')
+        if day.weather:
+            lines.append(f'   🌤 天气：{day.weather}')
+        lines.append('   --- 推荐搭配 ---')
+        for item in day.items:
+            acc = Accessory.query.get(item.accessory_id)
+            if not acc:
+                continue
+            total_items += 1
+            if item.packed:
+                packed_count += 1
+            prefix = '✅' if item.packed else '⬜'
+            tag = '[备用]' if item.is_spare else '      '
+            lines.append(f'   {prefix} {tag} {acc.category}：{acc.name} ({acc.color_family}·{acc.style})')
+            if item.reason:
+                lines.append(f'          💡 {item.reason}')
+            if item.reuse_count > 1:
+                lines.append(f'          🔁 本次行程复用第{item.reuse_count}次')
+
+    lines.append('')
+    lines.append('=' * 40)
+    lines.append(f'\n📦 打包进度：{packed_count}/{total_items} ({round(packed_count/max(total_items,1)*100, 1)}%)')
+
+    storage = compute_storage_locations(trip)
+    if storage:
+        lines.append('\n🗂 收纳取件指引：')
+        for s in storage:
+            lines.append(f'   📍 {s["location"]}（{s["count"]}件）')
+            for a in s['accessories']:
+                lines.append(f'      · {a["name"]}')
+
+    risks = compute_missing_risk(trip)
+    high_risks = [r for r in risks if r['risk_level'] in ['高', '中']]
+    if high_risks:
+        lines.append('\n⚠️ 缺失风险提醒：')
+        for r in high_risks:
+            lines.append(f'   [{r["risk_level"]}风险] {r["accessory"]["name"]}：使用率{r["usage_ratio"]}%，{r["suggestion"]}')
+
+    return jsonify({'content': '\n'.join(lines), 'lines': lines})
+
+
 @app.route('/api/statistics', methods=['GET'])
 def get_statistics():
     all_acc = Accessory.query.all()
@@ -537,6 +1086,87 @@ def get_statistics():
                 pass
     active_rate = round(worn_30d / max(total, 1) * 100, 1)
 
+    all_trips = TripPlan.query.all()
+    trip_count = len(all_trips)
+    trip_packing_stats = []
+    trip_color_stats = {}
+    unpacked_reminders = []
+    total_trip_items = 0
+    total_trip_packed = 0
+    total_trip_unique_acc = set()
+    trip_acc_usage_count = {}
+
+    for trip in all_trips:
+        trip_total = 0
+        trip_packed = 0
+        trip_unique = set()
+        for day in trip.days:
+            for item in day.items:
+                trip_total += 1
+                total_trip_items += 1
+                if item.packed:
+                    trip_packed += 1
+                    total_trip_packed += 1
+                else:
+                    acc = Accessory.query.get(item.accessory_id)
+                    if acc:
+                        unpacked_reminders.append({
+                            'trip_id': trip.id,
+                            'trip_name': trip.name,
+                            'day_index': day.day_index + 1,
+                            'date': day.date,
+                            'accessory': acc.to_dict(),
+                            'item_id': item.id,
+                            'is_spare': item.is_spare
+                        })
+                trip_unique.add(item.accessory_id)
+                total_trip_unique_acc.add(item.accessory_id)
+                acc = Accessory.query.get(item.accessory_id)
+                if acc:
+                    if acc.color_family not in trip_color_stats:
+                        trip_color_stats[acc.color_family] = 0
+                    trip_color_stats[acc.color_family] += 1
+                    if acc.id not in trip_acc_usage_count:
+                        trip_acc_usage_count[acc.id] = 0
+                    trip_acc_usage_count[acc.id] += 1
+
+        trip_packing_stats.append({
+            'trip_id': trip.id,
+            'trip_name': trip.name,
+            'destination': trip.destination,
+            'start_date': trip.start_date,
+            'end_date': trip.end_date,
+            'status': trip.status,
+            'total_items': trip_total,
+            'packed_items': trip_packed,
+            'unique_count': len(trip_unique),
+            'packing_rate': round(trip_packed / max(trip_total, 1) * 100, 1)
+        })
+
+    trip_packing_stats.sort(key=lambda x: x['start_date'], reverse=True)
+
+    total_trip_color_count = sum(trip_color_stats.values())
+    trip_color_distribution = [
+        {'color': c, 'count': cnt, 'percentage': round(cnt / max(total_trip_color_count, 1) * 100, 1)}
+        for c, cnt in sorted(trip_color_stats.items(), key=lambda x: -x[1])
+    ]
+
+    trip_plan_utilization = round(len(total_trip_unique_acc) / max(total, 1) * 100, 1) if total > 0 else 0
+
+    upcoming_trips = []
+    today_str = today.strftime('%Y-%m-%d')
+    for trip in all_trips:
+        if trip.start_date and trip.start_date >= today_str:
+            upcoming_trips.append({
+                'id': trip.id,
+                'name': trip.name,
+                'destination': trip.destination,
+                'start_date': trip.start_date,
+                'end_date': trip.end_date,
+                'status': trip.status
+            })
+    upcoming_trips.sort(key=lambda x: x['start_date'])
+
     return jsonify({
         'total': total,
         'category_distribution': [
@@ -549,7 +1179,17 @@ def get_statistics():
         'utilization_rate': min(utilization_rate, 100),
         'active_rate': active_rate,
         'total_wears': total_wears,
-        'active_count': worn_30d
+        'active_count': worn_30d,
+        'trip_count': trip_count,
+        'trip_packing_stats': trip_packing_stats,
+        'trip_packing_rate': round(total_trip_packed / max(total_trip_items, 1) * 100, 1),
+        'trip_total_items': total_trip_items,
+        'trip_packed_items': total_trip_packed,
+        'trip_plan_utilization': trip_plan_utilization,
+        'trip_unique_count': len(total_trip_unique_acc),
+        'trip_color_distribution': trip_color_distribution,
+        'upcoming_trips': upcoming_trips,
+        'unpacked_reminders': unpacked_reminders[:50]
     })
 
 

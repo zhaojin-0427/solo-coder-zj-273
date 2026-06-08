@@ -59,6 +59,179 @@
       </el-col>
     </el-row>
 
+    <div class="section-title" style="margin-top: 10px; margin-bottom: 16px; padding-left: 10px; border-left: 3px solid #c9a96e; font-size: 16px; font-weight: 600; color: #4a2c2a;">
+      旅行/活动行程数据
+    </div>
+
+    <div class="stat-cards">
+      <div class="stat-card" @click="goToTrips" style="cursor: pointer;">
+        <div class="stat-ic" style="background: linear-gradient(135deg, #c9a96e, #e8c87a);">
+          <el-icon :size="22" color="#fff"><Suitcase /></el-icon>
+        </div>
+        <div>
+          <div class="stat-v">{{ stats.trip_count || 0 }}</div>
+          <div class="stat-l">行程总数</div>
+        </div>
+      </div>
+      <div class="stat-card" @click="goToTrips" style="cursor: pointer;">
+        <div class="stat-ic" style="background: linear-gradient(135deg, #6ba878, #8ac492);">
+          <el-icon :size="22" color="#fff"><Box /></el-icon>
+        </div>
+        <div>
+          <div class="stat-v">{{ stats.trip_packing_rate || 0 }}%</div>
+          <div class="stat-l">整体打包完成率 ({{ stats.trip_packed_items || 0 }}/{{ stats.trip_total_items || 0 }})</div>
+        </div>
+      </div>
+      <div class="stat-card" @click="goToTrips" style="cursor: pointer;">
+        <div class="stat-ic" style="background: linear-gradient(135deg, #5a8cc8, #7aa8e0);">
+          <el-icon :size="22" color="#fff"><RefreshRight /></el-icon>
+        </div>
+        <div>
+          <div class="stat-v">{{ stats.trip_plan_utilization || 0 }}%</div>
+          <div class="stat-l">计划内饰品利用率 ({{ stats.trip_unique_count || 0 }}件)</div>
+        </div>
+      </div>
+      <div class="stat-card" @click="goToTrips" style="cursor: pointer;">
+        <div class="stat-ic" style="background: linear-gradient(135deg, #9b7ab8, #b598d0);">
+          <el-icon :size="22" color="#fff"><Calendar /></el-icon>
+        </div>
+        <div>
+          <div class="stat-v">{{ stats.upcoming_trips?.length || 0 }}</div>
+          <div class="stat-l">即将到来的行程</div>
+        </div>
+      </div>
+    </div>
+
+    <el-row :gutter="20">
+      <el-col :xs="24" :md="12">
+        <div class="card">
+          <div class="section-title">
+            行程打包进度
+            <el-tag v-if="stats.trip_packing_stats?.length" size="small" type="info" effect="light" style="margin-left: 10px;">
+              {{ stats.trip_packing_stats.length }} 个行程
+            </el-tag>
+          </div>
+          <div v-if="!stats.trip_packing_stats?.length" class="empty-tip" style="padding: 30px;">
+            <el-icon><Suitcase /></el-icon>
+            <p>还没有行程数据，去行李规划创建行程吧</p>
+          </div>
+          <div v-else class="trip-packing-list">
+            <div v-for="t in stats.trip_packing_stats" :key="t.trip_id" class="trip-packing-item">
+              <div class="tpi-header" @click="goToTrip(t.trip_id)">
+                <div class="tpi-name">{{ t.trip_name }}</div>
+                <el-tag :type="t.status === 'completed' ? 'success' : t.status === 'packing' ? 'warning' : 'info'" size="small">
+                  {{ { planning: '规划中', packing: '打包中', completed: '已完成' }[t.status] || t.status }}
+                </el-tag>
+              </div>
+              <div class="tpi-meta">
+                <el-icon color="#c9a96e" size="12"><Location /></el-icon>
+                {{ t.destination || '未指定' }}
+                <span class="sep">·</span>
+                {{ t.start_date }} ~ {{ t.end_date }}
+              </div>
+              <div class="tpi-progress">
+                <el-progress
+                  :percentage="t.packing_rate"
+                  :color="t.packing_rate >= 100 ? '#6ba878' : t.packing_rate >= 50 ? '#c9a96e' : '#e8a45b'"
+                  :stroke-width="8"
+                />
+                <span class="tpi-count">{{ t.packed_items }}/{{ t.total_items }} 件 · {{ t.unique_count }} 件单品</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </el-col>
+      <el-col :xs="24" :md="12">
+        <div class="card">
+          <div class="section-title">
+            旅行高频色系
+            <el-tag size="small" type="warning" effect="light" style="margin-left: 10px;">历史行程偏好</el-tag>
+          </div>
+          <div v-if="!stats.trip_color_distribution?.length" class="empty-tip" style="padding: 30px;">
+            <el-icon><Brush /></el-icon>
+            <p>还没有行程色系数据</p>
+          </div>
+          <div ref="tripColorChartRef" style="height: 300px;"></div>
+        </div>
+      </el-col>
+    </el-row>
+
+    <div v-if="stats.upcoming_trips?.length > 0" class="card">
+      <div class="section-title">
+        即将到来的行程
+        <el-tag type="warning" effect="light" style="margin-left: 10px;">请提前准备打包</el-tag>
+      </div>
+      <div class="upcoming-list">
+        <div v-for="trip in stats.upcoming_trips" :key="trip.id" class="upcoming-card" @click="goToTrip(trip.id)">
+          <div class="uc-date-box">
+            <div class="uc-month">{{ formatMonth(trip.start_date) }}</div>
+            <div class="uc-day">{{ formatDay(trip.start_date) }}</div>
+          </div>
+          <div class="uc-info">
+            <div class="uc-name">{{ trip.name }}</div>
+            <div class="uc-meta">
+              <el-icon color="#c9a96e"><Location /></el-icon>
+              {{ trip.destination || '未指定目的地' }}
+              <span class="sep">·</span>
+              {{ trip.start_date }} ~ {{ trip.end_date }}
+            </div>
+          </div>
+          <el-button class="btn-primary" size="small">
+            查看清单
+          </el-button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="stats.unpacked_reminders?.length > 0" class="card">
+      <div class="section-title">
+        未打包提醒
+        <el-tag type="danger" effect="light" style="margin-left: 10px;">
+          还有 {{ stats.unpacked_reminders.length }} 件饰品待打包
+        </el-tag>
+      </div>
+      <el-table :data="stats.unpacked_reminders.slice(0, 20)" stripe size="small">
+        <el-table-column label="行程" width="160">
+          <template #default="{ row }">
+            <el-button type="primary" link @click="goToTrip(row.trip_id)">
+              {{ row.trip_name }}
+            </el-button>
+          </template>
+        </el-table-column>
+        <el-table-column label="日期" width="100">
+          <template #default="{ row }">
+            第{{ row.day_index }}天
+            <div style="font-size: 11px; color: #999;">{{ row.date }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="饰品" min-width="200">
+          <template #default="{ row }">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 36px; height: 36px; border-radius: 6px; background: #f5efe6; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                <img v-if="row.accessory.photo" :src="'/uploads/' + row.accessory.photo" style="width: 100%; height: 100%; object-fit: cover;" />
+                <el-icon v-else color="#ccc"><Picture /></el-icon>
+              </div>
+              <div>
+                <div style="font-weight: 500; font-size: 13px;">
+                  {{ row.accessory.name }}
+                  <el-tag v-if="row.is_spare" size="small" type="warning" effect="light" style="margin-left: 6px;">备用</el-tag>
+                </div>
+                <div style="font-size: 11px; color: #999;">
+                  <span class="color-dot" :style="{ background: colorMap[row.accessory.color_family] }"></span>
+                  {{ row.accessory.category }} · {{ row.accessory.color_family }}
+                </div>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="收纳位置" width="140" prop="accessory.storage_location">
+          <template #default="{ row }">
+            {{ row.accessory.storage_location || '未标记' }}
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
     <div class="card">
       <div class="section-title">高频搭配组合</div>
       <div v-if="stats.frequent_combos && stats.frequent_combos.length > 0" class="freq-list">
@@ -136,19 +309,46 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, watch } from 'vue'
 import * as echarts from 'echarts'
+import { Suitcase, Box, RefreshRight, Calendar, Location, Brush, Picture, DataAnalysis, Collection, Histogram, SuccessFilled, DataLine, Star } from '@element-plus/icons-vue'
 import { getStatistics } from '@/api'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const stats = ref({})
 const colorChartRef = ref(null)
 const categoryChartRef = ref(null)
+const tripColorChartRef = ref(null)
 
 const colorMap = {
   '金色': '#d4a855', '银色': '#c0c0c0', '玫瑰金': '#e8b4a0', '白色': '#f8f5f0',
   '黑色': '#333333', '红色': '#c83c3c', '粉色': '#f0a0b0', '蓝色': '#5a8cc8',
   '绿色': '#6ba878', '紫色': '#9b7ab8', '米色': '#e8dcc8', '棕色': '#8b6f47',
   '灰色': '#999999', '黄色': '#e8c85a'
+}
+
+const goToTrips = () => {
+  router.push('/trips')
+}
+
+const goToTrip = (id) => {
+  router.push('/trips')
+  setTimeout(() => {
+    window.dispatchEvent(new CustomEvent('view-trip', { detail: { id } }))
+  }, 100)
+}
+
+const formatMonth = (dateStr) => {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  return `${d.getMonth() + 1}月`
+}
+
+const formatDay = (dateStr) => {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  return d.getDate()
 }
 
 const loadData = async () => {
@@ -211,6 +411,26 @@ const renderCharts = () => {
       }]
     })
   }
+
+  if (tripColorChartRef.value && stats.value.trip_color_distribution?.length) {
+    const chart = echarts.init(tripColorChartRef.value)
+    chart.setOption({
+      tooltip: { trigger: 'item', formatter: '{b}: {c}次 ({d}%)' },
+      legend: { bottom: 0, type: 'scroll' },
+      series: [{
+        type: 'pie',
+        radius: ['40%', '65%'],
+        roseType: 'radius',
+        itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+        label: { show: true, formatter: '{b}\n{d}%', fontSize: 11 },
+        data: stats.value.trip_color_distribution.map(d => ({
+          name: d.color,
+          value: d.count,
+          itemStyle: { color: colorMap[d.color] || '#c9a96e' }
+        }))
+      }]
+    })
+  }
 }
 
 onMounted(loadData)
@@ -232,6 +452,12 @@ onMounted(loadData)
   align-items: center;
   gap: 14px;
   box-shadow: 0 2px 12px rgba(74, 44, 42, 0.06);
+  transition: all 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(74, 44, 42, 0.1);
 }
 
 .stat-ic {
@@ -319,5 +545,133 @@ onMounted(loadData)
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+}
+
+.trip-packing-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.trip-packing-item {
+  padding: 12px 14px;
+  background: #faf7f5;
+  border-radius: 10px;
+}
+
+.tpi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+
+.tpi-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4a2c2a;
+}
+
+.tpi-meta {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tpi-meta .sep {
+  color: #ccc;
+  margin: 0 4px;
+}
+
+.tpi-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tpi-progress .el-progress {
+  flex: 1;
+}
+
+.tpi-count {
+  font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+}
+
+.upcoming-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.upcoming-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  background: linear-gradient(135deg, #fff9ef 0%, #faf7f5 100%);
+  border-radius: 12px;
+  border: 1px solid #f0e8dd;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.upcoming-card:hover {
+  box-shadow: 0 4px 16px rgba(74, 44, 42, 0.08);
+  transform: translateY(-2px);
+}
+
+.uc-date-box {
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, #c9a96e, #e8c87a);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.uc-month {
+  font-size: 11px;
+  opacity: 0.9;
+}
+
+.uc-day {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.uc-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.uc-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #4a2c2a;
+  margin-bottom: 4px;
+}
+
+.uc-meta {
+  font-size: 12px;
+  color: #888;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.uc-meta .sep {
+  color: #ccc;
+  margin: 0 4px;
 }
 </style>

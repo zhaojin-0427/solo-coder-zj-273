@@ -33,6 +33,10 @@
           <el-icon><DataAnalysis /></el-icon>
           <span>数据统计</span>
         </el-menu-item>
+        <el-menu-item index="/trips">
+          <el-icon><Suitcase /></el-icon>
+          <span>行李规划</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>

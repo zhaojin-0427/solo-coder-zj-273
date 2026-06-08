@@ -26,6 +26,11 @@ const routes = [
     path: '/statistics',
     component: () => import('@/views/Statistics.vue'),
     meta: { title: '数据统计' }
+  },
+  {
+    path: '/trips',
+    component: () => import('@/views/Trips.vue'),
+    meta: { title: '旅行/活动搭配行李规划' }
   }
 ]
 
