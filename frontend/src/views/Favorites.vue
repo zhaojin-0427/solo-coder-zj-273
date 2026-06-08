@@ -35,26 +35,47 @@
         </div>
 
         <div class="fav-pieces">
-          <div class="f-piece" v-if="fav.necklace">
+          <div class="f-piece" v-if="fav.necklace" :class="{ disabled: fav.necklace.status !== 'in_stock' }">
             <div class="fp-photo">
               <img v-if="fav.necklace.photo" :src="'/uploads/' + fav.necklace.photo" />
               <div v-else class="fp-empty"><el-icon :size="20"><Picture /></el-icon></div>
+              <el-tag
+                v-if="fav.necklace.status !== 'in_stock'"
+                :type="statusTypeMap[fav.necklace.status] || 'warning'"
+                effect="light"
+                size="small"
+                class="fp-status"
+              >{{ statusLabelMap[fav.necklace.status] || fav.necklace.status }}</el-tag>
             </div>
             <div class="fp-name">{{ fav.necklace.name }}</div>
             <div class="fp-cat">项链</div>
           </div>
-          <div class="f-piece" v-if="fav.earring">
+          <div class="f-piece" v-if="fav.earring" :class="{ disabled: fav.earring.status !== 'in_stock' }">
             <div class="fp-photo">
               <img v-if="fav.earring.photo" :src="'/uploads/' + fav.earring.photo" />
               <div v-else class="fp-empty"><el-icon :size="20"><Picture /></el-icon></div>
+              <el-tag
+                v-if="fav.earring.status !== 'in_stock'"
+                :type="statusTypeMap[fav.earring.status] || 'warning'"
+                effect="light"
+                size="small"
+                class="fp-status"
+              >{{ statusLabelMap[fav.earring.status] || fav.earring.status }}</el-tag>
             </div>
             <div class="fp-name">{{ fav.earring.name }}</div>
             <div class="fp-cat">耳环</div>
           </div>
-          <div class="f-piece" v-if="fav.bracelet">
+          <div class="f-piece" v-if="fav.bracelet" :class="{ disabled: fav.bracelet.status !== 'in_stock' }">
             <div class="fp-photo">
               <img v-if="fav.bracelet.photo" :src="'/uploads/' + fav.bracelet.photo" />
               <div v-else class="fp-empty"><el-icon :size="20"><Picture /></el-icon></div>
+              <el-tag
+                v-if="fav.bracelet.status !== 'in_stock'"
+                :type="statusTypeMap[fav.bracelet.status] || 'warning'"
+                effect="light"
+                size="small"
+                class="fp-status"
+              >{{ statusLabelMap[fav.bracelet.status] || fav.bracelet.status }}</el-tag>
             </div>
             <div class="fp-name">{{ fav.bracelet.name }}</div>
             <div class="fp-cat">手链</div>
@@ -69,7 +90,12 @@
         <div class="fav-footer">
           <span style="font-size: 12px; color: #999;">创建于 {{ fav.created_at }}</span>
           <div class="fav-actions">
-            <el-button size="small" type="success" @click="handleUse(fav)">
+            <el-button
+              size="small"
+              type="success"
+              :disabled="!isFavAvailable(fav)"
+              @click="handleUse(fav)"
+            >
               <el-icon><Check /></el-icon>佩戴
             </el-button>
             <el-button size="small" type="danger" text @click="handleDelete(fav)">
@@ -96,6 +122,27 @@ const colorMap = {
   '黑色': '#333333', '红色': '#c83c3c', '粉色': '#f0a0b0', '蓝色': '#5a8cc8',
   '绿色': '#6ba878', '紫色': '#9b7ab8', '米色': '#e8dcc8', '棕色': '#8b6f47',
   '灰色': '#999999', '黄色': '#e8c85a'
+}
+
+const statusLabelMap = {
+  in_stock: '在库',
+  lent: '已借出',
+  overdue: '逾期未还',
+  maintenance: '保养中',
+  repair: '维修中'
+}
+
+const statusTypeMap = {
+  in_stock: 'success',
+  lent: 'primary',
+  overdue: 'danger',
+  maintenance: 'warning',
+  repair: 'warning'
+}
+
+const isFavAvailable = (fav) => {
+  const items = [fav.necklace, fav.earring, fav.bracelet].filter(Boolean)
+  return items.every(a => a.status === 'in_stock')
 }
 
 const loadMeta = async () => {
@@ -180,11 +227,6 @@ onMounted(() => {
   margin-bottom: 14px;
 }
 
-.f-piece {
-  flex: 1;
-  text-align: center;
-}
-
 .fp-photo {
   width: 100%;
   height: 80px;
@@ -205,6 +247,22 @@ onMounted(() => {
 
 .fp-empty {
   color: #ccc;
+}
+
+.fp-status {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+.f-piece {
+  flex: 1;
+  text-align: center;
+  position: relative;
+}
+
+.f-piece.disabled {
+  opacity: 0.55;
 }
 
 .fp-name {

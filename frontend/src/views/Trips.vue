@@ -163,13 +163,22 @@
               <el-icon color="#c9a96e"><MagicStick /></el-icon> 精选推荐
             </div>
             <div class="pieces-row">
-              <div v-for="item in day.items.filter(i => !i.is_spare)" :key="item.id" class="piece-card" :class="{ packed: item.packed }">
-                <div class="pc-checkbox" @click.stop="handleTogglePack(item)">
-                  <el-checkbox :model-value="item.packed" />
+              <div v-for="item in day.items.filter(i => !i.is_spare)" :key="item.id" class="piece-card" :class="{ packed: item.packed, disabled: item.accessory.status !== 'in_stock' }">
+                <div class="pc-checkbox" @click.stop="item.accessory.status === 'in_stock' && handleTogglePack(item)">
+                  <el-checkbox :model-value="item.packed" :disabled="item.accessory.status !== 'in_stock'" />
                 </div>
                 <div class="pc-photo">
                   <img v-if="item.accessory.photo" :src="'/uploads/' + item.accessory.photo" />
                   <div v-else class="pc-empty"><el-icon :size="24"><Picture /></el-icon></div>
+                  <el-tag
+                    v-if="item.accessory.status !== 'in_stock'"
+                    :type="statusTypeMap[item.accessory.status] || 'warning'"
+                    effect="light"
+                    size="small"
+                    class="pc-status-tag"
+                  >
+                    {{ statusLabelMap[item.accessory.status] || item.accessory.status }}
+                  </el-tag>
                 </div>
                 <div class="pc-info">
                   <div class="pc-cat">{{ item.accessory.category }}</div>
@@ -190,13 +199,22 @@
                 <el-icon color="#e8a45b"><Present /></el-icon> 备用单品
               </div>
               <div class="pieces-row">
-                <div v-for="item in day.items.filter(i => i.is_spare)" :key="item.id" class="piece-card spare" :class="{ packed: item.packed }">
-                  <div class="pc-checkbox" @click.stop="handleTogglePack(item)">
-                    <el-checkbox :model-value="item.packed" />
+                <div v-for="item in day.items.filter(i => i.is_spare)" :key="item.id" class="piece-card spare" :class="{ packed: item.packed, disabled: item.accessory.status !== 'in_stock' }">
+                  <div class="pc-checkbox" @click.stop="item.accessory.status === 'in_stock' && handleTogglePack(item)">
+                    <el-checkbox :model-value="item.packed" :disabled="item.accessory.status !== 'in_stock'" />
                   </div>
                   <div class="pc-photo">
                     <img v-if="item.accessory.photo" :src="'/uploads/' + item.accessory.photo" />
                     <div v-else class="pc-empty"><el-icon :size="24"><Picture /></el-icon></div>
+                    <el-tag
+                      v-if="item.accessory.status !== 'in_stock'"
+                      :type="statusTypeMap[item.accessory.status] || 'warning'"
+                      effect="light"
+                      size="small"
+                      class="pc-status-tag"
+                    >
+                      {{ statusLabelMap[item.accessory.status] || item.accessory.status }}
+                    </el-tag>
                   </div>
                   <div class="pc-info">
                     <div class="pc-cat">{{ item.accessory.category }}</div>
@@ -462,6 +480,22 @@ const statusMap = {
   planning: '规划中',
   packing: '打包中',
   completed: '已完成'
+}
+
+const statusLabelMap = {
+  in_stock: '在库',
+  lent: '已借出',
+  overdue: '逾期未还',
+  maintenance: '保养中',
+  repair: '维修中'
+}
+
+const statusTypeMap = {
+  in_stock: 'success',
+  lent: 'primary',
+  overdue: 'danger',
+  maintenance: 'warning',
+  repair: 'warning'
 }
 
 const colorMap = {
@@ -919,6 +953,22 @@ onUnmounted(() => {
 
 .piece-card.spare {
   background: #fff8ef;
+}
+
+.piece-card.disabled {
+  opacity: 0.55;
+  background: #f0ebe6;
+}
+
+.piece-card.disabled .pc-checkbox {
+  cursor: not-allowed;
+}
+
+.pc-status-tag {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
 }
 
 .pc-checkbox {

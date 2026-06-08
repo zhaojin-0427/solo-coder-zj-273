@@ -20,6 +20,14 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 db = SQLAlchemy(app)
 
+status_label_map = {
+    'in_stock': '在库',
+    'lent': '已借出',
+    'overdue': '逾期未还',
+    'maintenance': '保养中',
+    'repair': '维修中'
+}
+
 
 class Accessory(db.Model):
     __tablename__ = 'accessories'
@@ -509,7 +517,9 @@ def compute_missing_risk(trip):
     all_ids = []
     for day in trip.days:
         for item in day.items:
-            all_ids.append(item.accessory_id)
+            acc = Accessory.query.get(item.accessory_id)
+            if acc and acc.get_status() == 'in_stock':
+                all_ids.append(item.accessory_id)
 
     from collections import Counter
     id_counts = Counter(all_ids)
@@ -551,7 +561,7 @@ def compute_storage_locations(trip):
     for day in trip.days:
         for item in day.items:
             acc = Accessory.query.get(item.accessory_id)
-            if not acc:
+            if not acc or acc.get_status() != 'in_stock':
                 continue
             loc = acc.storage_location or '未标记位置'
             if loc not in loc_map:
@@ -903,6 +913,9 @@ def get_trip(tid):
     packed_items = 0
     for day in trip.days:
         for item in day.items:
+            acc = Accessory.query.get(item.accessory_id)
+            if not acc or acc.get_status() != 'in_stock':
+                continue
             total_items += 1
             if item.packed:
                 packed_items += 1
@@ -1034,6 +1047,9 @@ def regenerate_trip(tid):
 @app.route('/api/trips/items/<int:iid>/pack', methods=['POST'])
 def toggle_pack_item(iid):
     item = TripItem.query.get_or_404(iid)
+    acc = Accessory.query.get(item.accessory_id)
+    if acc and acc.get_status() != 'in_stock':
+        return jsonify({'error': f'该饰品当前状态为「{status_label_map.get(acc.get_status(), acc.get_status())}」，无法打包'}), 400
     data = request.get_json() or {}
     if 'packed' in data:
         item.packed = bool(data['packed'])
@@ -1046,11 +1062,17 @@ def toggle_pack_item(iid):
 @app.route('/api/trips/<int:tid>/pack-all', methods=['POST'])
 def pack_all_items(tid):
     trip = TripPlan.query.get_or_404(tid)
+    total = 0
+    packed = 0
     for day in trip.days:
         for item in day.items:
-            item.packed = True
+            total += 1
+            acc = Accessory.query.get(item.accessory_id)
+            if acc and acc.get_status() == 'in_stock':
+                item.packed = True
+                packed += 1
     db.session.commit()
-    return jsonify({'message': '全部标记已打包', 'packing_rate': 100})
+    return jsonify({'message': f'已打包 {packed}/{total} 件在库饰品', 'packed_count': packed, 'total_count': total})
 
 
 @app.route('/api/trips/<int:tid>/save-favorite', methods=['POST'])
@@ -1063,11 +1085,15 @@ def save_trip_day_as_favorite(tid):
     necklace_id = None
     earring_id = None
     bracelet_id = None
+    skipped = 0
     for item in day.items:
         if item.is_spare:
             continue
         acc = Accessory.query.get(item.accessory_id)
         if not acc:
+            continue
+        if acc.get_status() != 'in_stock':
+            skipped += 1
             continue
         if acc.category == '项链' and not necklace_id:
             necklace_id = acc.id
@@ -1075,6 +1101,8 @@ def save_trip_day_as_favorite(tid):
             earring_id = acc.id
         elif acc.category == '手链' and not bracelet_id:
             bracelet_id = acc.id
+    if not necklace_id and not earring_id and not bracelet_id:
+        return jsonify({'error': '该日搭配中的饰品均不在库，无法收藏'}), 400
 
     trip = TripPlan.query.get(tid)
     fav = OutfitFavorite(
@@ -1109,6 +1137,7 @@ def export_trip(tid):
 
     total_items = 0
     packed_count = 0
+    skipped_items = 0
     for day in trip.days:
         lines.append(f'\n📅 第 {day.day_index + 1} 天 ({day.date or ""})')
         if day.occasion:
@@ -1120,6 +1149,9 @@ def export_trip(tid):
             acc = Accessory.query.get(item.accessory_id)
             if not acc:
                 continue
+            if acc.get_status() != 'in_stock':
+                skipped_items += 1
+                continue
             total_items += 1
             if item.packed:
                 packed_count += 1
@@ -1130,6 +1162,9 @@ def export_trip(tid):
                 lines.append(f'          💡 {item.reason}')
             if item.reuse_count > 1:
                 lines.append(f'          🔁 本次行程复用第{item.reuse_count}次')
+
+    if skipped_items > 0:
+        lines.append(f'\n⚠️ 注：已自动排除 {skipped_items} 件不在库（借出/维修/保养中）的饰品')
 
     lines.append('')
     lines.append('=' * 40)
@@ -1230,7 +1265,7 @@ def get_statistics():
                     total_trip_packed += 1
                 else:
                     acc = Accessory.query.get(item.accessory_id)
-                    if acc:
+                    if acc and acc.get_status() == 'in_stock':
                         unpacked_reminders.append({
                             'trip_id': trip.id,
                             'trip_name': trip.name,
@@ -1348,9 +1383,13 @@ def get_statistics():
                 pass
     maintenance_reminders.sort(key=lambda x: x['next_maintenance_date'])
 
-    status_distribution = defaultdict(int)
+    status_stats = defaultdict(int)
     for acc in all_acc:
-        status_distribution[acc.get_status()] += 1
+        status_stats[acc.get_status()] += 1
+    status_distribution = [
+        {'status': s, 'count': c, 'percentage': round(c / max(total, 1) * 100, 1)}
+        for s, c in sorted(status_stats.items(), key=lambda x: -x[1])
+    ]
 
     return jsonify({
         'total': total,
@@ -1375,7 +1414,7 @@ def get_statistics():
         'trip_color_distribution': trip_color_distribution,
         'upcoming_trips': upcoming_trips,
         'unpacked_reminders': unpacked_reminders[:50],
-        'status_distribution': dict(status_distribution),
+        'status_distribution': status_distribution,
         'active_loan_count': len(active_loans),
         'overdue_loan_count': len(overdue_loans),
         'active_maintenance_count': len([m for m in active_maint if m.record_type == 'maintenance']),
