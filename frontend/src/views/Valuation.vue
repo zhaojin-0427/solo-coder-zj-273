@@ -283,7 +283,15 @@ const handleCalculate = async (accessory) => {
 const handleSubmitValuation = async () => {
   await valuationFormRef.value.validate()
   try {
-    await createValuation({ ...valuationForm })
+    const payload = {
+      accessory_id: valuationForm.accessory_id,
+      valuation_date: valuationForm.valuation_date,
+      estimated_value: valuationForm.value,
+      insurance_suggestion: valuationForm.suggested_insurance,
+      risk_level: valuationForm.risk_level,
+      condition_note: valuationForm.notes
+    }
+    await createValuation(payload)
     ElMessage.success('估值记录创建成功')
     valuationDialogVisible.value = false
     await loadData()

@@ -2151,16 +2151,25 @@ def create_valuation():
     data = request.get_json() or {}
     acc = Accessory.query.get_or_404(data.get('accessory_id'))
     auto_calc = calculate_valuation(acc)
+
+    estimated_value = float(data['estimated_value']) if 'estimated_value' in data and data['estimated_value'] is not None else auto_calc['estimated_value']
+    insurance_suggestion = float(data['insurance_suggestion']) if 'insurance_suggestion' in data and data['insurance_suggestion'] is not None else auto_calc['insurance_suggestion']
+    depreciation_reason = data.get('depreciation_reason') if data.get('depreciation_reason') else auto_calc['depreciation_reason']
+    risk_level = data.get('risk_level') if data.get('risk_level') else auto_calc['risk_level']
+    wear_frequency = data.get('wear_frequency') if data.get('wear_frequency') else auto_calc['wear_frequency']
+    repair_count = int(data['repair_count']) if 'repair_count' in data and data['repair_count'] is not None else auto_calc['repair_count']
+    condition_note = data.get('condition_note', '') or data.get('notes', '')
+
     record = ValuationRecord(
         accessory_id=data.get('accessory_id'),
         valuation_date=data.get('valuation_date', datetime.now().strftime('%Y-%m-%d')),
-        estimated_value=float(data.get('estimated_value') or auto_calc['estimated_value']),
-        depreciation_reason=data.get('depreciation_reason', auto_calc['depreciation_reason']),
-        insurance_suggestion=float(data.get('insurance_suggestion') or auto_calc['insurance_suggestion']),
-        risk_level=data.get('risk_level', auto_calc['risk_level']),
-        wear_frequency=data.get('wear_frequency', auto_calc['wear_frequency']),
-        repair_count=int(data.get('repair_count', auto_calc['repair_count'])),
-        condition_note=data.get('condition_note', auto_calc['condition_note'])
+        estimated_value=estimated_value,
+        depreciation_reason=depreciation_reason,
+        insurance_suggestion=insurance_suggestion,
+        risk_level=risk_level,
+        wear_frequency=wear_frequency,
+        repair_count=repair_count,
+        condition_note=condition_note
     )
     db.session.add(record)
     db.session.commit()
@@ -2591,7 +2600,9 @@ def export_insurance_list():
             'current_coverage': insured.coverage_amount if insured else 0,
             'policy_number': insured.policy_number if insured else '',
             'insurance_company': insured.insurance_company if insured else '',
-            'insurance_end_date': insured.end_date if insured else ''
+            'insurance_start_date': insured.start_date if insured else '',
+            'insurance_end_date': insured.end_date if insured else '',
+            'insurance_notes': insured.notes if insured else ''
         })
         total_suggested += val['insurance_suggestion']
         if insured:
@@ -2618,8 +2629,12 @@ def export_insurance_list():
         lines.append(f'   风险等级：{risk_label}')
         if item['has_insurance']:
             lines.append(f'   已投保：{item["insurance_company"]} 保单号 {item["policy_number"]} 保额 ¥{item["current_coverage"]}')
+            if item['insurance_start_date']:
+                lines.append(f'   保险生效：{item["insurance_start_date"]}')
             if item['insurance_end_date']:
                 lines.append(f'   保险到期：{item["insurance_end_date"]}')
+            if item['insurance_notes']:
+                lines.append(f'   备注：{item["insurance_notes"]}')
         else:
             lines.append(f'   ⚠️ 未投保，建议尽快办理')
 

@@ -380,7 +380,13 @@ const loadMeta = async () => {
 }
 
 const loadInsuranceData = async () => {
-  insuranceList.value = await getInsuranceItems()
+  const list = await getInsuranceItems()
+  insuranceList.value = list.map(item => ({
+    ...item,
+    effective_date: item.effective_date || item.start_date || '',
+    expiry_date: item.expiry_date || item.end_date || '',
+    remarks: item.remarks || item.notes || ''
+  }))
 }
 
 const loadAccessories = async () => {
@@ -407,10 +413,10 @@ const openDialog = (item) => {
       policy_number: item.policy_number,
       coverage_amount: item.coverage_amount,
       premium: item.premium,
-      effective_date: item.effective_date,
-      expiry_date: item.expiry_date,
+      effective_date: item.effective_date || item.start_date || '',
+      expiry_date: item.expiry_date || item.end_date || '',
       status: item.status,
-      remarks: item.remarks || ''
+      remarks: item.remarks || item.notes || ''
     })
   } else {
     editing.value = false
@@ -435,10 +441,10 @@ const handleSubmit = async () => {
     policy_number: form.policy_number,
     coverage_amount: form.coverage_amount,
     premium: form.premium,
-    effective_date: form.effective_date,
-    expiry_date: form.expiry_date,
+    start_date: form.effective_date,
+    end_date: form.expiry_date,
     status: form.status,
-    remarks: form.remarks
+    notes: form.remarks
   }
   if (editing.value) {
     await updateInsuranceItem(form.id, payload)
