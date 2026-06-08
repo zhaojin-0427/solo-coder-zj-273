@@ -340,7 +340,7 @@
       </div>
       <div class="stat-card">
         <div class="stat-ic" style="background: linear-gradient(135deg, #9b7ab8, #b598d0);">
-          <el-icon :size="22" color="#fff"><Money /></el-icon>
+          <el-icon :size="22" color="#fff"><Coin /></el-icon>
         </div>
         <div>
           <div class="stat-v">¥{{ stats.total_maintenance_cost || 0 }}</div>
@@ -364,7 +364,7 @@
             维修保养费用趋势
           </div>
           <div v-if="!stats.cost_trend?.length" class="empty-tip" style="padding: 30px;">
-            <el-icon><Money /></el-icon>
+            <el-icon><Coin /></el-icon>
             <p>暂无费用数据</p>
           </div>
           <div v-else ref="costTrendChartRef" style="height: 300px;"></div>
@@ -451,13 +451,154 @@
         </el-table-column>
       </el-table>
     </div>
+
+    <div class="section-title" style="margin-top: 10px; margin-bottom: 16px; padding-left: 10px; border-left: 3px solid #c9a96e; font-size: 16px; font-weight: 600; color: #4a2c2a;">
+      资产估值与保险盘点统计
+    </div>
+
+    <div class="stat-cards">
+      <div class="stat-card" @click="goToValuation" style="cursor: pointer;">
+        <div class="stat-ic" style="background: linear-gradient(135deg, #c9a96e, #e8c87a);">
+          <el-icon :size="22" color="#fff"><Coin /></el-icon>
+        </div>
+        <div>
+          <div class="stat-v">¥{{ (stats.total_asset_value || 0).toLocaleString() }}</div>
+          <div class="stat-l">资产总估值</div>
+        </div>
+      </div>
+      <div class="stat-card" @click="goToInsurance" style="cursor: pointer;">
+        <div class="stat-ic" style="background: linear-gradient(135deg, #6ba878, #8ac492);">
+          <el-icon :size="22" color="#fff"><Coin /></el-icon>
+        </div>
+        <div>
+          <div class="stat-v">¥{{ (stats.total_insurance_coverage || 0).toLocaleString() }}</div>
+          <div class="stat-l">已投保保额</div>
+        </div>
+      </div>
+      <div class="stat-card" @click="goToCertificates" style="cursor: pointer;">
+        <div class="stat-ic" style="background: linear-gradient(135deg, #e8a45b, #f0c088);">
+          <el-icon :size="22" color="#fff"><Notebook /></el-icon>
+        </div>
+        <div>
+          <div class="stat-v">{{ stats.cert_missing_rate || 0 }}%</div>
+          <div class="stat-l">证书缺失率</div>
+        </div>
+      </div>
+      <div class="stat-card" @click="goToInventory" style="cursor: pointer;">
+        <div class="stat-ic" style="background: linear-gradient(135deg, #5a8cc8, #7aa8e0);">
+          <el-icon :size="22" color="#fff"><Present /></el-icon>
+        </div>
+        <div>
+          <div class="stat-v">{{ stats.inventory_completion_rate || 0 }}%</div>
+          <div class="stat-l">盘点完成率</div>
+        </div>
+      </div>
+      <div class="stat-card" @click="goToInventory" style="cursor: pointer;">
+        <div class="stat-ic" style="background: linear-gradient(135deg, #c83c3c, #e87878);">
+          <el-icon :size="22" color="#fff"><Warning /></el-icon>
+        </div>
+        <div>
+          <div class="stat-v">{{ stats.unresolved_exception_count || 0 }}</div>
+          <div class="stat-l">未处理盘点异常</div>
+        </div>
+      </div>
+      <div class="stat-card" @click="goToInsurance" style="cursor: pointer;">
+        <div class="stat-ic" style="background: linear-gradient(135deg, #9b7ab8, #b598d0);">
+          <el-icon :size="22" color="#fff"><PieChart /></el-icon>
+        </div>
+        <div>
+          <div class="stat-v">{{ stats.high_value_uninsured?.length || 0 }}</div>
+          <div class="stat-l">高价值未投保饰品</div>
+        </div>
+      </div>
+    </div>
+
+    <el-row :gutter="20">
+      <el-col :xs="24" :md="14">
+        <div class="card">
+          <div class="section-title">
+            估值变化趋势
+            <el-tag size="small" type="warning" effect="light" style="margin-left: 10px;">
+              历史估值总览
+            </el-tag>
+          </div>
+          <div v-if="!stats.valuation_trend?.length" class="empty-tip" style="padding: 30px;">
+            <el-icon><TrendCharts /></el-icon>
+            <p>暂无估值趋势数据，去估值总览生成估值记录</p>
+          </div>
+          <div v-else ref="valuationTrendChartRef" style="height: 300px;"></div>
+        </div>
+      </el-col>
+      <el-col :xs="24" :md="10">
+        <div class="card">
+          <div class="section-title">
+            异常饰品分布
+            <el-tag size="small" type="danger" effect="light" style="margin-left: 10px;">
+              按异常类型
+            </el-tag>
+          </div>
+          <div v-if="!stats.exception_distribution?.length" class="empty-tip" style="padding: 30px;">
+            <el-icon><CircleCheck /></el-icon>
+            <p>暂无异常数据，所有饰品状态良好</p>
+          </div>
+          <div v-else ref="exceptionDistChartRef" style="height: 300px;"></div>
+        </div>
+      </el-col>
+    </el-row>
+
+    <div v-if="stats.high_value_uninsured?.length > 0" class="card">
+      <div class="section-title">
+        高价值未投保饰品
+        <el-tag type="danger" effect="light" style="margin-left: 10px;">
+          建议尽快投保
+        </el-tag>
+      </div>
+      <el-table :data="stats.high_value_uninsured" stripe>
+        <el-table-column label="饰品" min-width="200">
+          <template #default="{ row }">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 40px; height: 40px; border-radius: 6px; background: #f5efe6; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                <img v-if="row.photo" :src="'/uploads/' + row.photo" style="width: 100%; height: 100%; object-fit: cover;" />
+                <el-icon v-else color="#ccc"><Picture /></el-icon>
+              </div>
+              <div>
+                <div style="font-weight: 500;">{{ row.name }}</div>
+                <div style="font-size: 12px; color: #999;">{{ row.category }} · {{ row.material }}{{ row.brand ? ' · ' + row.brand : '' }}</div>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="当前估值" width="140" align="center">
+          <template #default="{ row }">
+            <span style="color: #c9a96e; font-weight: 700; font-size: 15px;">¥{{ (row.current_value || 0).toLocaleString() }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="建议保额" width="140" align="center">
+          <template #default="{ row }">
+            <span style="color: #4a2c2a; font-weight: 600;">¥{{ (row.suggested_insurance || 0).toLocaleString() }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="风险等级" width="120" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.risk_level === 'critical' ? 'danger' : row.risk_level === 'high' ? 'warning' : row.risk_level === 'medium' ? 'info' : 'success'" effect="light">
+              {{ { critical: '严重', high: '高', medium: '中', low: '低' }[row.risk_level] || row.risk_level }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="品牌" width="140" prop="brand">
+          <template #default="{ row }">
+            {{ row.brand || '—' }}
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, nextTick, watch } from 'vue'
 import * as echarts from 'echarts'
-import { Suitcase, Box, RefreshRight, Calendar, Location, Brush, Picture, DataAnalysis, Collection, Histogram, SuccessFilled, DataLine, Star, User, Warning, Setting, Money } from '@element-plus/icons-vue'
+import { Suitcase, Box, RefreshRight, Calendar, Location, Brush, Picture, DataAnalysis, Collection, Histogram, SuccessFilled, DataLine, Star, User, Warning, Setting, Coin, Wallet, Notebook, Present, TrendCharts, PieChart, CircleCheck, Goods } from '@element-plus/icons-vue'
 import { getStatistics } from '@/api'
 import { useRouter } from 'vue-router'
 
@@ -468,13 +609,17 @@ const categoryChartRef = ref(null)
 const tripColorChartRef = ref(null)
 const statusChartRef = ref(null)
 const costTrendChartRef = ref(null)
+const valuationTrendChartRef = ref(null)
+const exceptionDistChartRef = ref(null)
 
 const statusColorMap = {
   in_stock: '#6ba878',
   lent: '#5a8cc8',
   overdue: '#c83c3c',
   maintenance: '#e8a45b',
-  repair: '#c86b3c'
+  repair: '#c86b3c',
+  lost: '#8b0000',
+  inventory_exception: '#ff6b6b'
 }
 
 const statusLabelMap = {
@@ -482,7 +627,9 @@ const statusLabelMap = {
   lent: '已借出',
   overdue: '逾期未还',
   maintenance: '保养中',
-  repair: '维修中'
+  repair: '维修中',
+  lost: '已丢失',
+  inventory_exception: '盘点异常'
 }
 
 const colorMap = {
@@ -498,6 +645,22 @@ const goToTrips = () => {
 
 const goToTracking = () => {
   router.push('/tracking')
+}
+
+const goToValuation = () => {
+  router.push('/valuation')
+}
+
+const goToCertificates = () => {
+  router.push('/certificates')
+}
+
+const goToInventory = () => {
+  router.push('/inventory')
+}
+
+const goToInsurance = () => {
+  router.push('/insurance')
 }
 
 const goToTrip = (id) => {
@@ -651,6 +814,78 @@ const renderCharts = () => {
         })),
         barWidth: '40%',
         label: { show: true, position: 'top', color: '#4a2c2a', fontWeight: 600, formatter: '¥{c}' }
+      }]
+    })
+  }
+
+  if (valuationTrendChartRef.value && stats.value.valuation_trend?.length) {
+    const chart = echarts.init(valuationTrendChartRef.value)
+    chart.setOption({
+      tooltip: { trigger: 'axis', formatter: '{b}: ¥{c}' },
+      grid: { left: 60, right: 30, top: 30, bottom: 40 },
+      xAxis: {
+        type: 'category',
+        boundaryGap: false,
+        data: stats.value.valuation_trend.map(d => d.date),
+        axisLine: { lineStyle: { color: '#ddd' } },
+        axisLabel: { color: '#666' }
+      },
+      yAxis: {
+        type: 'value',
+        name: '¥',
+        splitLine: { lineStyle: { color: '#f5f0e8' } },
+        axisLabel: { color: '#999', formatter: value => (value / 1000) + 'k' }
+      },
+      series: [{
+        type: 'line',
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 6,
+        data: stats.value.valuation_trend.map(d => d.total_value),
+        lineStyle: { color: '#c9a96e', width: 3 },
+        itemStyle: { color: '#c9a96e', borderColor: '#fff', borderWidth: 2 },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(201, 169, 110, 0.35)' },
+            { offset: 1, color: 'rgba(201, 169, 110, 0.05)' }
+          ])
+        },
+        label: {
+          show: true,
+          position: 'top',
+          color: '#4a2c2a',
+          fontWeight: 600,
+          formatter: params => '¥' + (params.value / 1000).toFixed(1) + 'k'
+        }
+      }]
+    })
+  }
+
+  const exceptionTypeColorMap = {
+    '缺失': '#c83c3c',
+    '损坏': '#e8a45b',
+    '证书不全': '#c9a96e',
+    '位置不符': '#5a8cc8',
+    '借出未登记': '#9b7ab8',
+    '其他': '#999'
+  }
+
+  if (exceptionDistChartRef.value && stats.value.exception_distribution?.length) {
+    const chart = echarts.init(exceptionDistChartRef.value)
+    chart.setOption({
+      tooltip: { trigger: 'item', formatter: '{b}: {c}件 ({d}%)' },
+      legend: { bottom: 0, type: 'scroll' },
+      series: [{
+        type: 'pie',
+        radius: ['40%', '65%'],
+        avoidLabelOverlap: false,
+        itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+        label: { show: true, formatter: '{b}\n{d}%', fontSize: 11 },
+        data: stats.value.exception_distribution.map(d => ({
+          name: d.type,
+          value: d.count,
+          itemStyle: { color: exceptionTypeColorMap[d.type] || '#c9a96e' }
+        }))
       }]
     })
   }

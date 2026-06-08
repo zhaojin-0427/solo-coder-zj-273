@@ -55,3 +55,40 @@ export const deleteMaintenance = (id) => request.delete(`/api/maintenance/${id}`
 export const setMaintenanceDate = (id, data) => request.post(`/api/accessories/${id}/set-maintenance`, data).then(r => r.data)
 
 export const getTrackingSummary = () => request.get('/api/tracking/summary').then(r => r.data)
+
+export const calculateValuation = (id) => request.get(`/api/valuations/calculate/${id}`).then(r => r.data)
+export const getValuations = (params = {}) => request.get('/api/valuations', { params }).then(r => r.data)
+export const getValuation = (id) => request.get(`/api/valuations/${id}`).then(r => r.data)
+export const createValuation = (data) => request.post('/api/valuations', data).then(r => r.data)
+export const deleteValuation = (id) => request.delete(`/api/valuations/${id}`).then(r => r.data)
+export const getValuationOverview = () => request.get('/api/valuations/overview').then(r => r.data)
+
+export const getCertificates = (params = {}) => request.get('/api/certificates', { params }).then(r => r.data)
+export const getCertificate = (id) => request.get(`/api/certificates/${id}`).then(r => r.data)
+export const createCertificate = (formData) => request.post('/api/certificates', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+}).then(r => r.data)
+export const updateCertificate = (id, formData) => request.put(`/api/certificates/${id}`, formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+}).then(r => r.data)
+export const deleteCertificate = (id) => request.delete(`/api/certificates/${id}`).then(r => r.data)
+
+export const getInventoryBatches = (params = {}) => request.get('/api/inventory/batches', { params }).then(r => r.data)
+export const getInventoryBatch = (id) => request.get(`/api/inventory/batches/${id}`).then(r => r.data)
+export const createInventoryBatch = (data) => request.post('/api/inventory/batches', data).then(r => r.data)
+export const completeInventoryBatch = (id) => request.post(`/api/inventory/batches/${id}/complete`).then(r => r.data)
+export const deleteInventoryBatch = (id) => request.delete(`/api/inventory/batches/${id}`).then(r => r.data)
+export const checkInventoryItem = (id, data) => request.post(`/api/inventory/items/${id}/check`, data || {}).then(r => r.data)
+
+export const getInventoryExceptions = (params = {}) => request.get('/api/inventory/exceptions', { params }).then(r => r.data)
+export const getInventoryException = (id) => request.get(`/api/inventory/exceptions/${id}`).then(r => r.data)
+export const createInventoryException = (data) => request.post('/api/inventory/exceptions', data).then(r => r.data)
+export const resolveInventoryException = (id, data) => request.post(`/api/inventory/exceptions/${id}/resolve`, data || {}).then(r => r.data)
+export const deleteInventoryException = (id) => request.delete(`/api/inventory/exceptions/${id}`).then(r => r.data)
+
+export const getInsuranceItems = (params = {}) => request.get('/api/insurance', { params }).then(r => r.data)
+export const getInsuranceItem = (id) => request.get(`/api/insurance/${id}`).then(r => r.data)
+export const createInsuranceItem = (data) => request.post('/api/insurance', data).then(r => r.data)
+export const updateInsuranceItem = (id, data) => request.put(`/api/insurance/${id}`, data).then(r => r.data)
+export const deleteInsuranceItem = (id) => request.delete(`/api/insurance/${id}`).then(r => r.data)
+export const exportInsuranceList = () => request.get('/api/insurance/export').then(r => r.data)

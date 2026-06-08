@@ -36,6 +36,31 @@ const routes = [
     path: '/tracking',
     component: () => import('@/views/Tracking.vue'),
     meta: { title: '借出与保养追踪' }
+  },
+  {
+    path: '/valuation',
+    component: () => import('@/views/Valuation.vue'),
+    meta: { title: '估值总览' }
+  },
+  {
+    path: '/certificates',
+    component: () => import('@/views/Certificates.vue'),
+    meta: { title: '证书档案' }
+  },
+  {
+    path: '/inventory',
+    component: () => import('@/views/Inventory.vue'),
+    meta: { title: '盘点任务' }
+  },
+  {
+    path: '/inventory-exceptions',
+    component: () => import('@/views/InventoryExceptions.vue'),
+    meta: { title: '异常处理' }
+  },
+  {
+    path: '/insurance',
+    component: () => import('@/views/Insurance.vue'),
+    meta: { title: '保险清单' }
   }
 ]
 

@@ -41,6 +41,32 @@
           <el-icon><Tools /></el-icon>
           <span>借出与保养</span>
         </el-menu-item>
+        <el-sub-menu index="valuation-menu">
+          <template #title>
+            <el-icon><Wallet /></el-icon>
+            <span>价值评估与保险</span>
+          </template>
+          <el-menu-item index="/valuation">
+            <el-icon><TrendCharts /></el-icon>
+            <span>估值总览</span>
+          </el-menu-item>
+          <el-menu-item index="/certificates">
+            <el-icon><Files /></el-icon>
+            <span>证书档案</span>
+          </el-menu-item>
+          <el-menu-item index="/inventory">
+            <el-icon><Tickets /></el-icon>
+            <span>盘点任务</span>
+          </el-menu-item>
+          <el-menu-item index="/inventory-exceptions">
+            <el-icon><WarningFilled /></el-icon>
+            <span>异常处理</span>
+          </el-menu-item>
+          <el-menu-item index="/insurance">
+            <el-icon><CreditCard /></el-icon>
+            <span>保险清单</span>
+          </el-menu-item>
+        </el-sub-menu>
       </el-menu>
     </el-aside>
     <el-container>

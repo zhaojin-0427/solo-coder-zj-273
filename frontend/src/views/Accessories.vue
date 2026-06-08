@@ -172,6 +172,59 @@
               </el-upload>
             </el-form-item>
           </el-col>
+          <el-col :span="24">
+            <el-divider content-position="left">价值信息</el-divider>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="购买渠道">
+              <el-select v-model="form.purchase_channel" placeholder="选择购买渠道" clearable style="width: 100%">
+                <el-option v-for="c in meta.purchase_channels" :key="c" :label="c" :value="c" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="购买价格">
+              <el-input-number v-model="form.purchase_price" :min="0" :precision="2" :step="100" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="品牌">
+              <el-input v-model="form.brand" placeholder="如：Tiffany、周大福" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="购买日期">
+              <el-date-picker v-model="form.purchase_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="贵金属克重(g)">
+              <el-input-number v-model="form.precious_metal_weight" :min="0" :precision="2" :step="0.5" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="宝石参数">
+              <el-input v-model="form.gemstone_params" placeholder="如：钻石1ct VVS1 D色" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="保养状况">
+              <el-select v-model="form.maintenance_status" placeholder="选择保养状况" style="width: 100%">
+                <el-option v-for="s in meta.maintenance_statuses" :key="s.value" :label="s.label" :value="s.value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="标记丢失">
+              <el-switch v-model="form.is_lost" />
+              <span style="margin-left: 10px; color: #999; font-size: 12px;">丢失的饰品将不会出现在搭配推荐和行李规划中</span>
+            </el-form-item>
+          </el-col>
+          <el-col :span="24">
+            <el-form-item label="估值备注">
+              <el-input v-model="form.valuation_notes" type="textarea" :rows="2" placeholder="记录与估值相关的备注信息" />
+            </el-form-item>
+          </el-col>
         </el-row>
       </el-form>
       <template #footer>
@@ -187,7 +240,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getMeta, getAccessories, createAccessory, updateAccessory, deleteAccessory, wearAccessory } from '@/api'
 
-const meta = ref({ categories: [], materials: [], color_families: [], styles: [], occasions: [], accessory_statuses: [] })
+const meta = ref({ categories: [], materials: [], color_families: [], styles: [], occasions: [], accessory_statuses: [], maintenance_statuses: [], purchase_channels: [] })
 const list = ref([])
 const searchText = ref('')
 const filters = reactive({ category: '', color_family: '', style: '', occasion: '', status: '' })
@@ -197,7 +250,9 @@ const statusMap = {
   lent: { label: '已借出', type: 'primary' },
   overdue: { label: '逾期未还', type: 'danger' },
   maintenance: { label: '保养中', type: 'warning' },
-  repair: { label: '维修中', type: 'warning' }
+  repair: { label: '维修中', type: 'warning' },
+  lost: { label: '已丢失', type: 'danger' },
+  inventory_exception: { label: '盘点异常', type: 'danger' }
 }
 
 const colorMap = {
@@ -221,7 +276,10 @@ const photoFile = ref(null)
 const defaultForm = () => ({
   id: null, name: '', category: '', material: '', color: '',
   color_family: '', style: '', occasions: [], storage_location: '',
-  last_worn_date: '', wear_count: 0
+  last_worn_date: '', wear_count: 0,
+  purchase_channel: '', purchase_price: 0, brand: '', purchase_date: '',
+  valuation_notes: '', precious_metal_weight: 0, gemstone_params: '',
+  is_lost: false, maintenance_status: 'good'
 })
 const form = reactive(defaultForm())
 
@@ -252,7 +310,16 @@ const openDialog = (acc) => {
       id: acc.id, name: acc.name, category: acc.category, material: acc.material,
       color: acc.color, color_family: acc.color_family, style: acc.style,
       occasions: [...acc.occasions], storage_location: acc.storage_location,
-      last_worn_date: acc.last_worn_date, wear_count: acc.wear_count
+      last_worn_date: acc.last_worn_date, wear_count: acc.wear_count,
+      purchase_channel: acc.purchase_channel || '',
+      purchase_price: acc.purchase_price || 0,
+      brand: acc.brand || '',
+      purchase_date: acc.purchase_date || '',
+      valuation_notes: acc.valuation_notes || '',
+      precious_metal_weight: acc.precious_metal_weight || 0,
+      gemstone_params: acc.gemstone_params || '',
+      is_lost: acc.is_lost || false,
+      maintenance_status: acc.maintenance_status || 'good'
     })
   } else {
     editing.value = false

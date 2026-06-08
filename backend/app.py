@@ -25,7 +25,9 @@ status_label_map = {
     'lent': '已借出',
     'overdue': '逾期未还',
     'maintenance': '保养中',
-    'repair': '维修中'
+    'repair': '维修中',
+    'lost': '已丢失',
+    'inventory_exception': '盘点异常'
 }
 
 
@@ -46,8 +48,19 @@ class Accessory(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     next_maintenance_date = db.Column(db.String(20), default='')
     maintenance_cycle_days = db.Column(db.Integer, default=0)
+    purchase_channel = db.Column(db.String(100), default='')
+    purchase_price = db.Column(db.Float, default=0.0)
+    brand = db.Column(db.String(100), default='')
+    purchase_date = db.Column(db.String(20), default='')
+    valuation_notes = db.Column(db.Text, default='')
+    precious_metal_weight = db.Column(db.Float, default=0.0)
+    gemstone_params = db.Column(db.Text, default='')
+    is_lost = db.Column(db.Boolean, default=False)
+    maintenance_status = db.Column(db.String(20), default='good')
 
     def get_status(self):
+        if self.is_lost:
+            return 'lost'
         today = datetime.now()
         active_loan = LoanRecord.query.filter_by(
             accessory_id=self.id, returned=False
@@ -68,6 +81,11 @@ class Accessory(db.Model):
                 return 'maintenance'
             else:
                 return 'repair'
+        pending_exception = InventoryException.query.filter_by(
+            accessory_id=self.id, resolved=False
+        ).first()
+        if pending_exception:
+            return 'inventory_exception'
         return 'in_stock'
 
     def to_dict(self):
@@ -87,7 +105,16 @@ class Accessory(db.Model):
             'created_at': self.created_at.strftime('%Y-%m-%d') if self.created_at else '',
             'status': self.get_status(),
             'next_maintenance_date': self.next_maintenance_date,
-            'maintenance_cycle_days': self.maintenance_cycle_days
+            'maintenance_cycle_days': self.maintenance_cycle_days,
+            'purchase_channel': self.purchase_channel,
+            'purchase_price': self.purchase_price,
+            'brand': self.brand,
+            'purchase_date': self.purchase_date,
+            'valuation_notes': self.valuation_notes,
+            'precious_metal_weight': self.precious_metal_weight,
+            'gemstone_params': self.gemstone_params,
+            'is_lost': self.is_lost,
+            'maintenance_status': self.maintenance_status
         }
 
 
@@ -296,6 +323,214 @@ class MaintenanceRecord(db.Model):
         }
 
 
+class ValuationRecord(db.Model):
+    __tablename__ = 'valuation_records'
+    id = db.Column(db.Integer, primary_key=True)
+    accessory_id = db.Column(db.Integer, db.ForeignKey('accessories.id'), nullable=False)
+    valuation_date = db.Column(db.String(20), default='')
+    estimated_value = db.Column(db.Float, default=0.0)
+    depreciation_reason = db.Column(db.Text, default='')
+    insurance_suggestion = db.Column(db.Float, default=0.0)
+    risk_level = db.Column(db.String(20), default='low')
+    wear_frequency = db.Column(db.String(20), default='')
+    repair_count = db.Column(db.Integer, default=0)
+    condition_note = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        acc = Accessory.query.get(self.accessory_id)
+        return {
+            'id': self.id,
+            'accessory_id': self.accessory_id,
+            'accessory': acc.to_dict() if acc else None,
+            'valuation_date': self.valuation_date,
+            'estimated_value': self.estimated_value,
+            'depreciation_reason': self.depreciation_reason,
+            'insurance_suggestion': self.insurance_suggestion,
+            'risk_level': self.risk_level,
+            'wear_frequency': self.wear_frequency,
+            'repair_count': self.repair_count,
+            'condition_note': self.condition_note,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else ''
+        }
+
+
+class CertificateAttachment(db.Model):
+    __tablename__ = 'certificate_attachments'
+    id = db.Column(db.Integer, primary_key=True)
+    accessory_id = db.Column(db.Integer, db.ForeignKey('accessories.id'), nullable=False)
+    cert_type = db.Column(db.String(50), default='')
+    file_name = db.Column(db.String(200), default='')
+    file_path = db.Column(db.String(300), default='')
+    cert_number = db.Column(db.String(100), default='')
+    issue_date = db.Column(db.String(20), default='')
+    issuer = db.Column(db.String(100), default='')
+    notes = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        acc = Accessory.query.get(self.accessory_id)
+        return {
+            'id': self.id,
+            'accessory_id': self.accessory_id,
+            'accessory': acc.to_dict() if acc else None,
+            'cert_type': self.cert_type,
+            'file_name': self.file_name,
+            'file_path': self.file_path,
+            'cert_number': self.cert_number,
+            'issue_date': self.issue_date,
+            'issuer': self.issuer,
+            'notes': self.notes,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else ''
+        }
+
+
+class InventoryBatch(db.Model):
+    __tablename__ = 'inventory_batches'
+    id = db.Column(db.Integer, primary_key=True)
+    batch_name = db.Column(db.String(200), nullable=False)
+    batch_type = db.Column(db.String(20), default='annual')
+    period = db.Column(db.String(50), default='')
+    start_date = db.Column(db.String(20), default='')
+    end_date = db.Column(db.String(20), default='')
+    status = db.Column(db.String(20), default='pending')
+    total_count = db.Column(db.Integer, default=0)
+    checked_count = db.Column(db.Integer, default=0)
+    exception_count = db.Column(db.Integer, default=0)
+    operator = db.Column(db.String(100), default='')
+    notes = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    items = db.relationship('InventoryItem', backref='batch', cascade='all, delete-orphan')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'batch_name': self.batch_name,
+            'batch_type': self.batch_type,
+            'period': self.period,
+            'start_date': self.start_date,
+            'end_date': self.end_date,
+            'status': self.status,
+            'total_count': self.total_count,
+            'checked_count': self.checked_count,
+            'exception_count': self.exception_count,
+            'operator': self.operator,
+            'notes': self.notes,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else '',
+            'completion_rate': round(self.checked_count / max(self.total_count, 1) * 100, 1),
+            'items': [i.to_dict() for i in self.items]
+        }
+
+
+class InventoryItem(db.Model):
+    __tablename__ = 'inventory_items'
+    id = db.Column(db.Integer, primary_key=True)
+    batch_id = db.Column(db.Integer, db.ForeignKey('inventory_batches.id'), nullable=False)
+    accessory_id = db.Column(db.Integer, db.ForeignKey('accessories.id'), nullable=False)
+    expected_location = db.Column(db.String(100), default='')
+    actual_location = db.Column(db.String(100), default='')
+    status = db.Column(db.String(20), default='pending')
+    check_method = db.Column(db.String(20), default='manual')
+    checked_at = db.Column(db.String(20), default='')
+    notes = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        acc = Accessory.query.get(self.accessory_id)
+        return {
+            'id': self.id,
+            'batch_id': self.batch_id,
+            'accessory_id': self.accessory_id,
+            'accessory': acc.to_dict() if acc else None,
+            'expected_location': self.expected_location,
+            'actual_location': self.actual_location,
+            'status': self.status,
+            'check_method': self.check_method,
+            'checked_at': self.checked_at,
+            'notes': self.notes,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else ''
+        }
+
+
+class InventoryException(db.Model):
+    __tablename__ = 'inventory_exceptions'
+    id = db.Column(db.Integer, primary_key=True)
+    batch_id = db.Column(db.Integer, db.ForeignKey('inventory_batches.id'), nullable=True)
+    accessory_id = db.Column(db.Integer, db.ForeignKey('accessories.id'), nullable=False)
+    exception_type = db.Column(db.String(30), default='')
+    description = db.Column(db.Text, default='')
+    reported_at = db.Column(db.String(20), default='')
+    resolved = db.Column(db.Boolean, default=False)
+    resolved_at = db.Column(db.String(20), default='')
+    resolution = db.Column(db.Text, default='')
+    handler = db.Column(db.String(100), default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        acc = Accessory.query.get(self.accessory_id)
+        batch = InventoryBatch.query.get(self.batch_id) if self.batch_id else None
+        return {
+            'id': self.id,
+            'batch_id': self.batch_id,
+            'batch_name': batch.batch_name if batch else '',
+            'accessory_id': self.accessory_id,
+            'accessory': acc.to_dict() if acc else None,
+            'exception_type': self.exception_type,
+            'description': self.description,
+            'reported_at': self.reported_at,
+            'resolved': self.resolved,
+            'resolved_at': self.resolved_at,
+            'resolution': self.resolution,
+            'handler': self.handler,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else ''
+        }
+
+
+class InsuranceItem(db.Model):
+    __tablename__ = 'insurance_items'
+    id = db.Column(db.Integer, primary_key=True)
+    accessory_id = db.Column(db.Integer, db.ForeignKey('accessories.id'), nullable=False)
+    insurance_company = db.Column(db.String(100), default='')
+    policy_number = db.Column(db.String(100), default='')
+    coverage_amount = db.Column(db.Float, default=0.0)
+    premium = db.Column(db.Float, default=0.0)
+    start_date = db.Column(db.String(20), default='')
+    end_date = db.Column(db.String(20), default='')
+    status = db.Column(db.String(20), default='active')
+    notes = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        acc = Accessory.query.get(self.accessory_id)
+        return {
+            'id': self.id,
+            'accessory_id': self.accessory_id,
+            'accessory': acc.to_dict() if acc else None,
+            'insurance_company': self.insurance_company,
+            'policy_number': self.policy_number,
+            'coverage_amount': self.coverage_amount,
+            'premium': self.premium,
+            'start_date': self.start_date,
+            'end_date': self.end_date,
+            'status': self.status,
+            'notes': self.notes,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else ''
+        }
+
+
+MATERIAL_VALUE_FACTOR = {
+    '黄金': 1.0, '白金': 0.95, '玫瑰金': 0.9, '纯银': 0.15,
+    '合金': 0.05, '珍珠': 0.4, '水晶': 0.2, '宝石': 0.8,
+    '玉石': 0.6, '布料': 0.02, '皮革': 0.03, '其他': 0.05
+}
+
+BRAND_PREMIUM = {
+    'Tiffany': 1.5, 'Cartier': 1.6, 'Van Cleef': 1.7, 'Bvlgari': 1.55,
+    'Chanel': 1.5, 'Dior': 1.45, 'Hermes': 1.6, 'Gucci': 1.35,
+    '周大福': 1.2, '周生生': 1.18, '老凤祥': 1.15, '其他': 1.0
+}
+
 COLOR_COMBINATIONS = {
     '金色': ['白色', '黑色', '红色', '绿色', '蓝色', '紫色', '米色'],
     '银色': ['白色', '黑色', '蓝色', '紫色', '粉色', '灰色'],
@@ -386,6 +621,120 @@ def generate_reason(necklace, earring, bracelet, main_color, style, occasion):
         reasons.append("整体搭配简洁大方，适合日常佩戴")
 
     return '；'.join(reasons) + '。'
+
+
+def calculate_valuation(acc):
+    base_price = float(acc.purchase_price or 0)
+    if base_price <= 0:
+        base_price = 500.0
+
+    today = datetime.now()
+    depreciation_reasons = []
+
+    material_factor = MATERIAL_VALUE_FACTOR.get(acc.material, 0.1)
+    brand_factor = 1.0
+    for brand_key, premium in BRAND_PREMIUM.items():
+        if brand_key.lower() in (acc.brand or '').lower():
+            brand_factor = premium
+            break
+
+    estimated_value = base_price * material_factor * brand_factor
+
+    if acc.purchase_date:
+        try:
+            purchase_dt = datetime.strptime(acc.purchase_date, '%Y-%m-%d')
+            years_owned = (today - purchase_dt).days / 365.25
+            annual_depreciation = 0.05
+            if years_owned > 0:
+                depreciation = min(0.5, annual_depreciation * years_owned)
+                estimated_value *= (1 - depreciation)
+                if depreciation > 0:
+                    depreciation_reasons.append(f"已持有{round(years_owned, 1)}年，时间折损{round(depreciation * 100, 1)}%")
+        except:
+            pass
+
+    wear_count = acc.wear_count or 0
+    if wear_count >= 50:
+        wear_depreciation = 0.25
+        wear_freq = '高频'
+    elif wear_count >= 20:
+        wear_depreciation = 0.15
+        wear_freq = '中频'
+    elif wear_count >= 5:
+        wear_depreciation = 0.08
+        wear_freq = '低频'
+    else:
+        wear_depreciation = 0.0
+        wear_freq = '极少'
+    if wear_depreciation > 0:
+        estimated_value *= (1 - wear_depreciation)
+        depreciation_reasons.append(f"累计佩戴{wear_count}次（{wear_freq}使用），折损{round(wear_depreciation * 100, 1)}%")
+
+    repair_count = MaintenanceRecord.query.filter_by(
+        accessory_id=acc.id, record_type='repair'
+    ).count()
+    if repair_count >= 3:
+        repair_depreciation = 0.25
+    elif repair_count >= 2:
+        repair_depreciation = 0.15
+    elif repair_count >= 1:
+        repair_depreciation = 0.08
+    else:
+        repair_depreciation = 0.0
+    if repair_depreciation > 0:
+        estimated_value *= (1 - repair_depreciation)
+        depreciation_reasons.append(f"维修记录{repair_count}次，折损{round(repair_depreciation * 100, 1)}%")
+
+    if acc.maintenance_status == 'poor':
+        condition_depreciation = 0.2
+        depreciation_reasons.append("保养状况较差，折损20%")
+    elif acc.maintenance_status == 'fair':
+        condition_depreciation = 0.1
+        depreciation_reasons.append("保养状况一般，折损10%")
+    else:
+        condition_depreciation = 0.0
+
+    estimated_value *= (1 - condition_depreciation)
+    estimated_value = round(estimated_value, 2)
+
+    if acc.is_lost:
+        risk_level = 'critical'
+    elif repair_count >= 3 or acc.maintenance_status == 'poor':
+        risk_level = 'high'
+    elif repair_count >= 1 or wear_count >= 30:
+        risk_level = 'medium'
+    else:
+        risk_level = 'low'
+
+    if acc.is_lost:
+        depreciation_reasons.insert(0, "饰品已标记为丢失")
+
+    insurance_suggestion = round(estimated_value * 1.1, 2)
+    if estimated_value >= 5000:
+        insurance_suggestion = round(estimated_value * 1.2, 2)
+
+    if not depreciation_reasons:
+        depreciation_reasons.append("饰品整体状况良好，折损较少")
+
+    return {
+        'estimated_value': estimated_value,
+        'depreciation_reason': '；'.join(depreciation_reasons),
+        'insurance_suggestion': insurance_suggestion,
+        'risk_level': risk_level,
+        'wear_frequency': wear_freq,
+        'repair_count': repair_count,
+        'condition_note': acc.maintenance_status
+    }
+
+
+def get_wear_frequency_label(wear_count):
+    if wear_count >= 50:
+        return '高频'
+    elif wear_count >= 20:
+        return '中频'
+    elif wear_count >= 5:
+        return '低频'
+    return '极少'
 
 
 def get_trip_item_score(acc, main_color, style, occasion, used_categories_today, trip_used_ids):
@@ -656,7 +1005,16 @@ def create_accessory():
         last_worn_date=data.get('last_worn_date', ''),
         wear_count=int(data.get('wear_count', 0)),
         next_maintenance_date=data.get('next_maintenance_date', ''),
-        maintenance_cycle_days=int(data.get('maintenance_cycle_days', 0))
+        maintenance_cycle_days=int(data.get('maintenance_cycle_days', 0)),
+        purchase_channel=data.get('purchase_channel', ''),
+        purchase_price=float(data.get('purchase_price', 0) or 0),
+        brand=data.get('brand', ''),
+        purchase_date=data.get('purchase_date', ''),
+        valuation_notes=data.get('valuation_notes', ''),
+        precious_metal_weight=float(data.get('precious_metal_weight', 0) or 0),
+        gemstone_params=data.get('gemstone_params', ''),
+        is_lost=False,
+        maintenance_status=data.get('maintenance_status', 'good')
     )
     db.session.add(acc)
     db.session.commit()
@@ -712,6 +1070,24 @@ def update_accessory(aid):
         acc.next_maintenance_date = data['next_maintenance_date']
     if 'maintenance_cycle_days' in data:
         acc.maintenance_cycle_days = int(data['maintenance_cycle_days'])
+    if 'purchase_channel' in data:
+        acc.purchase_channel = data['purchase_channel']
+    if 'purchase_price' in data:
+        acc.purchase_price = float(data['purchase_price'] or 0)
+    if 'brand' in data:
+        acc.brand = data['brand']
+    if 'purchase_date' in data:
+        acc.purchase_date = data['purchase_date']
+    if 'valuation_notes' in data:
+        acc.valuation_notes = data['valuation_notes']
+    if 'precious_metal_weight' in data:
+        acc.precious_metal_weight = float(data['precious_metal_weight'] or 0)
+    if 'gemstone_params' in data:
+        acc.gemstone_params = data['gemstone_params']
+    if 'is_lost' in data:
+        acc.is_lost = str(data['is_lost']).lower() in ('true', '1', 'yes')
+    if 'maintenance_status' in data:
+        acc.maintenance_status = data['maintenance_status']
 
     db.session.commit()
     return jsonify(acc.to_dict())
@@ -1391,6 +1767,61 @@ def get_statistics():
         for s, c in sorted(status_stats.items(), key=lambda x: -x[1])
     ]
 
+    total_asset_value = 0.0
+    valuation_trend = defaultdict(float)
+    high_value_uninsured = []
+    total_purchase_value = 0.0
+
+    all_valuations = ValuationRecord.query.order_by(ValuationRecord.created_at.asc()).all()
+    for v in all_valuations:
+        try:
+            month_key = v.created_at.strftime('%Y-%m')
+            valuation_trend[month_key] += v.estimated_value
+        except:
+            pass
+
+    all_insurance = InsuranceItem.query.filter_by(status='active').all()
+    insured_ids = set(i.accessory_id for i in all_insurance)
+
+    cert_count = CertificateAttachment.query.count()
+    cert_missing_count = 0
+    high_value_threshold = 3000.0
+
+    for acc in all_acc:
+        total_purchase_value += float(acc.purchase_price or 0)
+        val = calculate_valuation(acc)
+        total_asset_value += val['estimated_value']
+        acc_certs = CertificateAttachment.query.filter_by(accessory_id=acc.id).count()
+        if acc_certs == 0 and float(acc.purchase_price or 0) >= 1000:
+            cert_missing_count += 1
+        if val['estimated_value'] >= high_value_threshold and acc.id not in insured_ids and not acc.is_lost:
+            hv_item = acc.to_dict()
+            hv_item['current_value'] = val['estimated_value']
+            hv_item['insurance_suggestion'] = val['insurance_suggestion']
+            hv_item['risk_level'] = val['risk_level']
+            high_value_uninsured.append(hv_item)
+
+    high_value_uninsured.sort(key=lambda x: -x['current_value'])
+    valuation_trend_list = sorted([{'month': k, 'value': round(v, 2)} for k, v in valuation_trend.items()])
+
+    all_batches = InventoryBatch.query.all()
+    completed_batches = [b for b in all_batches if b.status == 'completed']
+    total_inventory_checked = sum(b.checked_count for b in completed_batches)
+    total_inventory_target = sum(b.total_count for b in completed_batches)
+    inventory_completion_rate = round(total_inventory_checked / max(total_inventory_target, 1) * 100, 1)
+
+    all_exceptions = InventoryException.query.all()
+    unresolved_exceptions = [e for e in all_exceptions if not e.resolved]
+    exception_by_type = defaultdict(int)
+    for e in all_exceptions:
+        exception_by_type[e.exception_type] += 1
+    exception_distribution = [
+        {'type': t or '未分类', 'count': c, 'percentage': round(c / max(len(all_exceptions), 1) * 100, 1)}
+        for t, c in sorted(exception_by_type.items(), key=lambda x: -x[1])
+    ]
+
+    total_insurance_coverage = sum(i.coverage_amount for i in all_insurance)
+
     return jsonify({
         'total': total,
         'category_distribution': [
@@ -1422,7 +1853,22 @@ def get_statistics():
         'total_maintenance_cost': round(total_maint_cost, 2),
         'cost_trend': cost_trend,
         'high_risk_accessories': high_risk,
-        'maintenance_reminders_30d': maintenance_reminders
+        'maintenance_reminders_30d': maintenance_reminders,
+        'total_asset_value': round(total_asset_value, 2),
+        'total_purchase_value': round(total_purchase_value, 2),
+        'valuation_trend': valuation_trend_list,
+        'high_value_uninsured': high_value_uninsured[:20],
+        'high_value_uninsured_count': len(high_value_uninsured),
+        'cert_missing_count': cert_missing_count,
+        'cert_missing_rate': round(cert_missing_count / max(total, 1) * 100, 1),
+        'total_cert_count': cert_count,
+        'inventory_completion_rate': inventory_completion_rate,
+        'total_inventory_batches': len(all_batches),
+        'completed_inventory_batches': len(completed_batches),
+        'unresolved_exception_count': len(unresolved_exceptions),
+        'exception_distribution': exception_distribution,
+        'total_insurance_coverage': round(total_insurance_coverage, 2),
+        'insured_accessory_count': len(insured_ids)
     })
 
 
@@ -1668,6 +2114,512 @@ def get_tracking_summary():
     })
 
 
+@app.route('/api/valuations/calculate/<int:aid>', methods=['GET'])
+def calculate_accessory_valuation(aid):
+    acc = Accessory.query.get_or_404(aid)
+    result = calculate_valuation(acc)
+    return jsonify({
+        'accessory_id': aid,
+        **result
+    })
+
+
+@app.route('/api/valuations', methods=['GET'])
+def get_valuations():
+    accessory_id = request.args.get('accessory_id', '')
+    query = ValuationRecord.query
+    if accessory_id:
+        query = query.filter_by(accessory_id=int(accessory_id))
+    records = query.order_by(ValuationRecord.created_at.desc()).all()
+    return jsonify([r.to_dict() for r in records])
+
+
+@app.route('/api/valuations/<int:vid>', methods=['GET'])
+def get_valuation(vid):
+    record = ValuationRecord.query.get_or_404(vid)
+    return jsonify(record.to_dict())
+
+
+@app.route('/api/valuations', methods=['POST'])
+def create_valuation():
+    data = request.get_json() or {}
+    acc = Accessory.query.get_or_404(data.get('accessory_id'))
+    auto_calc = calculate_valuation(acc)
+    record = ValuationRecord(
+        accessory_id=data.get('accessory_id'),
+        valuation_date=data.get('valuation_date', datetime.now().strftime('%Y-%m-%d')),
+        estimated_value=float(data.get('estimated_value') or auto_calc['estimated_value']),
+        depreciation_reason=data.get('depreciation_reason', auto_calc['depreciation_reason']),
+        insurance_suggestion=float(data.get('insurance_suggestion') or auto_calc['insurance_suggestion']),
+        risk_level=data.get('risk_level', auto_calc['risk_level']),
+        wear_frequency=data.get('wear_frequency', auto_calc['wear_frequency']),
+        repair_count=int(data.get('repair_count', auto_calc['repair_count'])),
+        condition_note=data.get('condition_note', auto_calc['condition_note'])
+    )
+    db.session.add(record)
+    db.session.commit()
+    return jsonify(record.to_dict()), 201
+
+
+@app.route('/api/valuations/<int:vid>', methods=['DELETE'])
+def delete_valuation(vid):
+    record = ValuationRecord.query.get_or_404(vid)
+    db.session.delete(record)
+    db.session.commit()
+    return jsonify({'message': '已删除'})
+
+
+@app.route('/api/valuations/overview', methods=['GET'])
+def get_valuation_overview():
+    all_acc = Accessory.query.filter_by(is_lost=False).all()
+    total_value = 0.0
+    total_purchase = 0.0
+    value_by_category = {}
+    value_by_risk = {'low': 0, 'medium': 0, 'high': 0, 'critical': 0}
+    valuation_details = []
+
+    for acc in all_acc:
+        val = calculate_valuation(acc)
+        total_value += val['estimated_value']
+        total_purchase += float(acc.purchase_price or 0)
+        cat = acc.category or '其他'
+        if cat not in value_by_category:
+            value_by_category[cat] = 0.0
+        value_by_category[cat] += val['estimated_value']
+        if val['risk_level'] in value_by_risk:
+            value_by_risk[val['risk_level']] += val['estimated_value']
+        valuation_details.append({
+            'accessory': acc.to_dict(),
+            'estimated_value': val['estimated_value'],
+            'depreciation_reason': val['depreciation_reason'],
+            'insurance_suggestion': val['insurance_suggestion'],
+            'risk_level': val['risk_level'],
+            'wear_frequency': val['wear_frequency']
+        })
+
+    valuation_details.sort(key=lambda x: -x['estimated_value'])
+
+    historical_records = ValuationRecord.query.order_by(ValuationRecord.created_at.asc()).all()
+    from collections import defaultdict
+    trend_map = defaultdict(float)
+    for r in historical_records:
+        try:
+            key = r.created_at.strftime('%Y-%m')
+            trend_map[key] += r.estimated_value
+        except:
+            pass
+    trend = sorted([{'month': k, 'value': round(v, 2)} for k, v in trend_map.items()])
+
+    category_distribution = sorted([
+        {'category': k, 'value': round(v, 2), 'percentage': round(v / max(total_value, 1) * 100, 1)}
+        for k, v in value_by_category.items()
+    ], key=lambda x: -x['value'])
+
+    risk_distribution = [
+        {'level': k, 'label': {'low': '低风险', 'medium': '中风险', 'high': '高风险', 'critical': '严重风险'}[k],
+         'value': round(v, 2), 'percentage': round(v / max(total_value, 1) * 100, 1)}
+        for k, v in value_by_risk.items()
+    ]
+
+    return jsonify({
+        'total_asset_value': round(total_value, 2),
+        'total_purchase_value': round(total_purchase, 2),
+        'depreciation_rate': round((1 - total_value / max(total_purchase, 1)) * 100, 1) if total_purchase > 0 else 0,
+        'accessory_count': len(all_acc),
+        'category_distribution': category_distribution,
+        'risk_distribution': risk_distribution,
+        'valuation_trend': trend,
+        'top_valuable': valuation_details[:20],
+        'all_valuations': valuation_details
+    })
+
+
+@app.route('/api/certificates', methods=['GET'])
+def get_certificates():
+    accessory_id = request.args.get('accessory_id', '')
+    cert_type = request.args.get('cert_type', '')
+    query = CertificateAttachment.query
+    if accessory_id:
+        query = query.filter_by(accessory_id=int(accessory_id))
+    if cert_type:
+        query = query.filter_by(cert_type=cert_type)
+    records = query.order_by(CertificateAttachment.created_at.desc()).all()
+    return jsonify([r.to_dict() for r in records])
+
+
+@app.route('/api/certificates/<int:cid>', methods=['GET'])
+def get_certificate(cid):
+    record = CertificateAttachment.query.get_or_404(cid)
+    return jsonify(record.to_dict())
+
+
+@app.route('/api/certificates', methods=['POST'])
+def create_certificate():
+    data = request.form.to_dict()
+    file_path = ''
+    file_name = ''
+    if 'file' in request.files:
+        f = request.files['file']
+        if f and f.filename:
+            ext = os.path.splitext(f.filename)[1]
+            file_name = f.filename
+            file_path = f"cert_{datetime.now().strftime('%Y%m%d%H%M%S%f')}_{uuid.uuid4().hex[:8]}{ext}"
+            f.save(os.path.join(app.config['UPLOAD_FOLDER'], file_path))
+
+    acc = Accessory.query.get_or_404(data.get('accessory_id'))
+    record = CertificateAttachment(
+        accessory_id=data.get('accessory_id'),
+        cert_type=data.get('cert_type', ''),
+        file_name=file_name,
+        file_path=file_path,
+        cert_number=data.get('cert_number', ''),
+        issue_date=data.get('issue_date', ''),
+        issuer=data.get('issuer', ''),
+        notes=data.get('notes', '')
+    )
+    db.session.add(record)
+    db.session.commit()
+    return jsonify(record.to_dict()), 201
+
+
+@app.route('/api/certificates/<int:cid>', methods=['PUT'])
+def update_certificate(cid):
+    record = CertificateAttachment.query.get_or_404(cid)
+    data = request.form.to_dict()
+    if 'file' in request.files:
+        f = request.files['file']
+        if f and f.filename:
+            if record.file_path:
+                old_path = os.path.join(app.config['UPLOAD_FOLDER'], record.file_path)
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+            ext = os.path.splitext(f.filename)[1]
+            record.file_name = f.filename
+            record.file_path = f"cert_{datetime.now().strftime('%Y%m%d%H%M%S%f')}_{uuid.uuid4().hex[:8]}{ext}"
+            f.save(os.path.join(app.config['UPLOAD_FOLDER'], record.file_path))
+    fields = ['cert_type', 'cert_number', 'issue_date', 'issuer', 'notes']
+    for f in fields:
+        if f in data:
+            setattr(record, f, data[f])
+    db.session.commit()
+    return jsonify(record.to_dict())
+
+
+@app.route('/api/certificates/<int:cid>', methods=['DELETE'])
+def delete_certificate(cid):
+    record = CertificateAttachment.query.get_or_404(cid)
+    if record.file_path:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], record.file_path)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    db.session.delete(record)
+    db.session.commit()
+    return jsonify({'message': '已删除'})
+
+
+@app.route('/api/inventory/batches', methods=['GET'])
+def get_inventory_batches():
+    status = request.args.get('status', '')
+    query = InventoryBatch.query
+    if status:
+        query = query.filter_by(status=status)
+    batches = query.order_by(InventoryBatch.created_at.desc()).all()
+    return jsonify([b.to_dict() for b in batches])
+
+
+@app.route('/api/inventory/batches/<int:bid>', methods=['GET'])
+def get_inventory_batch(bid):
+    batch = InventoryBatch.query.get_or_404(bid)
+    return jsonify(batch.to_dict())
+
+
+@app.route('/api/inventory/batches', methods=['POST'])
+def create_inventory_batch():
+    data = request.get_json() or {}
+    today = datetime.now().strftime('%Y-%m-%d')
+    batch = InventoryBatch(
+        batch_name=data.get('batch_name', f'盘点_{today}'),
+        batch_type=data.get('batch_type', 'annual'),
+        period=data.get('period', ''),
+        start_date=data.get('start_date', today),
+        end_date=data.get('end_date', ''),
+        status='in_progress',
+        total_count=0,
+        checked_count=0,
+        exception_count=0,
+        operator=data.get('operator', ''),
+        notes=data.get('notes', '')
+    )
+    db.session.add(batch)
+    db.session.flush()
+
+    all_acc = Accessory.query.filter_by(is_lost=False).all()
+    batch.total_count = len(all_acc)
+    for acc in all_acc:
+        item = InventoryItem(
+            batch_id=batch.id,
+            accessory_id=acc.id,
+            expected_location=acc.storage_location or '',
+            actual_location='',
+            status='pending',
+            check_method='manual',
+            checked_at='',
+            notes=''
+        )
+        db.session.add(item)
+
+    db.session.commit()
+    return jsonify(batch.to_dict()), 201
+
+
+@app.route('/api/inventory/batches/<int:bid>/complete', methods=['POST'])
+def complete_inventory_batch(bid):
+    batch = InventoryBatch.query.get_or_404(bid)
+    batch.status = 'completed'
+    batch.end_date = datetime.now().strftime('%Y-%m-%d')
+    db.session.commit()
+    return jsonify(batch.to_dict())
+
+
+@app.route('/api/inventory/batches/<int:bid>', methods=['DELETE'])
+def delete_inventory_batch(bid):
+    batch = InventoryBatch.query.get_or_404(bid)
+    db.session.delete(batch)
+    db.session.commit()
+    return jsonify({'message': '已删除'})
+
+
+@app.route('/api/inventory/items/<int:iid>/check', methods=['POST'])
+def check_inventory_item(iid):
+    item = InventoryItem.query.get_or_404(iid)
+    data = request.get_json() or {}
+    item.status = data.get('status', 'checked')
+    item.actual_location = data.get('actual_location', item.expected_location)
+    item.check_method = data.get('check_method', 'manual')
+    item.checked_at = datetime.now().strftime('%Y-%m-%d %H:%M')
+    if 'notes' in data:
+        item.notes = data['notes']
+
+    batch = InventoryBatch.query.get(item.batch_id)
+    if batch:
+        checked = InventoryItem.query.filter_by(batch_id=batch.id, status='checked').count()
+        batch.checked_count = checked
+        exceptions = InventoryException.query.filter_by(batch_id=batch.id, resolved=False).count()
+        batch.exception_count = exceptions
+
+    db.session.commit()
+    return jsonify(item.to_dict())
+
+
+@app.route('/api/inventory/exceptions', methods=['GET'])
+def get_inventory_exceptions():
+    resolved = request.args.get('resolved', '')
+    exception_type = request.args.get('exception_type', '')
+    query = InventoryException.query
+    if resolved == 'true':
+        query = query.filter_by(resolved=True)
+    elif resolved == 'false':
+        query = query.filter_by(resolved=False)
+    if exception_type:
+        query = query.filter_by(exception_type=exception_type)
+    records = query.order_by(InventoryException.created_at.desc()).all()
+    return jsonify([r.to_dict() for r in records])
+
+
+@app.route('/api/inventory/exceptions/<int:eid>', methods=['GET'])
+def get_inventory_exception(eid):
+    record = InventoryException.query.get_or_404(eid)
+    return jsonify(record.to_dict())
+
+
+@app.route('/api/inventory/exceptions', methods=['POST'])
+def create_inventory_exception():
+    data = request.get_json() or {}
+    acc = Accessory.query.get_or_404(data.get('accessory_id'))
+    record = InventoryException(
+        batch_id=data.get('batch_id'),
+        accessory_id=data.get('accessory_id'),
+        exception_type=data.get('exception_type', ''),
+        description=data.get('description', ''),
+        reported_at=data.get('reported_at', datetime.now().strftime('%Y-%m-%d')),
+        resolved=False,
+        resolved_at='',
+        resolution='',
+        handler=data.get('handler', '')
+    )
+    db.session.add(record)
+
+    if record.exception_type == '缺失':
+        acc.is_lost = True
+
+    if data.get('batch_id'):
+        batch = InventoryBatch.query.get(data['batch_id'])
+        if batch:
+            exceptions = InventoryException.query.filter_by(batch_id=batch.id, resolved=False).count()
+            batch.exception_count = exceptions + 1
+
+    db.session.commit()
+    return jsonify(record.to_dict()), 201
+
+
+@app.route('/api/inventory/exceptions/<int:eid>/resolve', methods=['POST'])
+def resolve_inventory_exception(eid):
+    record = InventoryException.query.get_or_404(eid)
+    data = request.get_json() or {}
+    record.resolved = True
+    record.resolved_at = datetime.now().strftime('%Y-%m-%d')
+    record.resolution = data.get('resolution', '')
+    record.handler = data.get('handler', record.handler)
+
+    acc = Accessory.query.get(record.accessory_id)
+    if acc and record.exception_type == '缺失' and data.get('found', False):
+        acc.is_lost = False
+
+    if record.batch_id:
+        batch = InventoryBatch.query.get(record.batch_id)
+        if batch:
+            exceptions = InventoryException.query.filter_by(batch_id=batch.id, resolved=False).count()
+            batch.exception_count = exceptions
+
+    db.session.commit()
+    return jsonify(record.to_dict())
+
+
+@app.route('/api/inventory/exceptions/<int:eid>', methods=['DELETE'])
+def delete_inventory_exception(eid):
+    record = InventoryException.query.get_or_404(eid)
+    db.session.delete(record)
+    db.session.commit()
+    return jsonify({'message': '已删除'})
+
+
+@app.route('/api/insurance', methods=['GET'])
+def get_insurance_items():
+    status = request.args.get('status', '')
+    query = InsuranceItem.query
+    if status:
+        query = query.filter_by(status=status)
+    items = query.order_by(InsuranceItem.created_at.desc()).all()
+    return jsonify([i.to_dict() for i in items])
+
+
+@app.route('/api/insurance/<int:iid>', methods=['GET'])
+def get_insurance_item(iid):
+    item = InsuranceItem.query.get_or_404(iid)
+    return jsonify(item.to_dict())
+
+
+@app.route('/api/insurance', methods=['POST'])
+def create_insurance_item():
+    data = request.get_json() or {}
+    acc = Accessory.query.get_or_404(data.get('accessory_id'))
+    item = InsuranceItem(
+        accessory_id=data.get('accessory_id'),
+        insurance_company=data.get('insurance_company', ''),
+        policy_number=data.get('policy_number', ''),
+        coverage_amount=float(data.get('coverage_amount', 0) or 0),
+        premium=float(data.get('premium', 0) or 0),
+        start_date=data.get('start_date', ''),
+        end_date=data.get('end_date', ''),
+        status=data.get('status', 'active'),
+        notes=data.get('notes', '')
+    )
+    db.session.add(item)
+    db.session.commit()
+    return jsonify(item.to_dict()), 201
+
+
+@app.route('/api/insurance/<int:iid>', methods=['PUT'])
+def update_insurance_item(iid):
+    item = InsuranceItem.query.get_or_404(iid)
+    data = request.get_json() or {}
+    fields = ['insurance_company', 'policy_number', 'start_date', 'end_date', 'status', 'notes']
+    for f in fields:
+        if f in data:
+            setattr(item, f, data[f])
+    if 'coverage_amount' in data:
+        item.coverage_amount = float(data['coverage_amount'] or 0)
+    if 'premium' in data:
+        item.premium = float(data['premium'] or 0)
+    db.session.commit()
+    return jsonify(item.to_dict())
+
+
+@app.route('/api/insurance/<int:iid>', methods=['DELETE'])
+def delete_insurance_item(iid):
+    item = InsuranceItem.query.get_or_404(iid)
+    db.session.delete(item)
+    db.session.commit()
+    return jsonify({'message': '已删除'})
+
+
+@app.route('/api/insurance/export', methods=['GET'])
+def export_insurance_list():
+    all_acc = Accessory.query.filter_by(is_lost=False).all()
+    insured_ids = set()
+    active_insurance = InsuranceItem.query.filter_by(status='active').all()
+    insurance_map = {}
+    for ins in active_insurance:
+        insured_ids.add(ins.accessory_id)
+        insurance_map[ins.accessory_id] = ins
+
+    export_items = []
+    total_coverage = 0.0
+    total_suggested = 0.0
+
+    for acc in all_acc:
+        val = calculate_valuation(acc)
+        insured = insurance_map.get(acc.id)
+        export_items.append({
+            'accessory': acc.to_dict(),
+            'estimated_value': val['estimated_value'],
+            'insurance_suggestion': val['insurance_suggestion'],
+            'risk_level': val['risk_level'],
+            'has_insurance': acc.id in insured_ids,
+            'current_coverage': insured.coverage_amount if insured else 0,
+            'policy_number': insured.policy_number if insured else '',
+            'insurance_company': insured.insurance_company if insured else '',
+            'insurance_end_date': insured.end_date if insured else ''
+        })
+        total_suggested += val['insurance_suggestion']
+        if insured:
+            total_coverage += insured.coverage_amount
+
+    export_items.sort(key=lambda x: -x['estimated_value'])
+
+    lines = []
+    lines.append(f'📋 珠宝饰品保险申报清单')
+    lines.append(f'📅 生成日期：{datetime.now().strftime("%Y-%m-%d %H:%M")}')
+    lines.append(f'📊 饰品总数：{len(all_acc)} 件')
+    lines.append(f'💰 总估值：¥{round(sum(v["estimated_value"] for v in export_items), 2)}')
+    lines.append(f'💡 建议总保额：¥{round(total_suggested, 2)}')
+    lines.append(f'🛡  当前保额：¥{round(total_coverage, 2)}')
+    lines.append('')
+    lines.append('=' * 60)
+    for idx, item in enumerate(export_items, 1):
+        acc = item['accessory']
+        lines.append(f'\n{idx}. {acc["name"]}（{acc["category"]}）')
+        lines.append(f'   材质：{acc["material"]} · 品牌：{acc.get("brand", "未填写") or "未填写"}')
+        lines.append(f'   当前估值：¥{item["estimated_value"]}')
+        lines.append(f'   建议保额：¥{item["insurance_suggestion"]}')
+        risk_label = {'low': '低', 'medium': '中', 'high': '高', 'critical': '严重'}.get(item['risk_level'], item['risk_level'])
+        lines.append(f'   风险等级：{risk_label}')
+        if item['has_insurance']:
+            lines.append(f'   已投保：{item["insurance_company"]} 保单号 {item["policy_number"]} 保额 ¥{item["current_coverage"]}')
+            if item['insurance_end_date']:
+                lines.append(f'   保险到期：{item["insurance_end_date"]}')
+        else:
+            lines.append(f'   ⚠️ 未投保，建议尽快办理')
+
+    return jsonify({
+        'items': export_items,
+        'total_coverage': round(total_coverage, 2),
+        'total_suggested': round(total_suggested, 2),
+        'uninsured_count': len(all_acc) - len(insured_ids),
+        'content': '\n'.join(lines)
+    })
+
+
 @app.route('/api/meta', methods=['GET'])
 def get_meta():
     return jsonify({
@@ -1681,8 +2633,37 @@ def get_meta():
             {'value': 'lent', 'label': '已借出'},
             {'value': 'overdue', 'label': '逾期未还'},
             {'value': 'maintenance', 'label': '保养中'},
-            {'value': 'repair', 'label': '维修中'}
-        ]
+            {'value': 'repair', 'label': '维修中'},
+            {'value': 'lost', 'label': '已丢失'},
+            {'value': 'inventory_exception', 'label': '盘点异常'}
+        ],
+        'maintenance_statuses': [
+            {'value': 'excellent', 'label': '极佳'},
+            {'value': 'good', 'label': '良好'},
+            {'value': 'fair', 'label': '一般'},
+            {'value': 'poor', 'label': '较差'}
+        ],
+        'cert_types': ['购买发票', '珠宝鉴定证书', '品牌证书', '保修卡', 'GIA证书', 'NGTC证书', '其他'],
+        'inventory_batch_types': [
+            {'value': 'annual', 'label': '年度盘点'},
+            {'value': 'quarterly', 'label': '季度盘点'},
+            {'value': 'monthly', 'label': '月度盘点'},
+            {'value': 'temporary', 'label': '临时盘点'}
+        ],
+        'inventory_exception_types': ['缺失', '损坏', '证书不全', '位置不符', '借出未登记', '其他'],
+        'insurance_statuses': [
+            {'value': 'active', 'label': '有效'},
+            {'value': 'expired', 'label': '已过期'},
+            {'value': 'pending', 'label': '待续保'}
+        ],
+        'risk_levels': [
+            {'value': 'low', 'label': '低风险'},
+            {'value': 'medium', 'label': '中风险'},
+            {'value': 'high', 'label': '高风险'},
+            {'value': 'critical', 'label': '严重风险'}
+        ],
+        'purchase_channels': ['品牌专柜', '官方网店', '珠宝店', '代购', '二手市场', '亲友赠送', '其他'],
+        'insurance_companies': ['中国平安', '中国人保', '太平洋保险', '泰康保险', '友邦保险', '其他']
     })
 
 
@@ -1692,31 +2673,39 @@ with app.app_context():
     from sqlalchemy import inspect, text
     inspector = inspect(db.engine)
     existing_cols = [c['name'] for c in inspector.get_columns('accessories')]
-    if 'next_maintenance_date' not in existing_cols:
-        try:
-            db.session.execute(text("ALTER TABLE accessories ADD COLUMN next_maintenance_date VARCHAR(20) DEFAULT ''"))
-            db.session.commit()
-        except:
-            pass
-    if 'maintenance_cycle_days' not in existing_cols:
-        try:
-            db.session.execute(text("ALTER TABLE accessories ADD COLUMN maintenance_cycle_days INTEGER DEFAULT 0"))
-            db.session.commit()
-        except:
-            pass
+    new_cols = {
+        'next_maintenance_date': "VARCHAR(20) DEFAULT ''",
+        'maintenance_cycle_days': "INTEGER DEFAULT 0",
+        'purchase_channel': "VARCHAR(100) DEFAULT ''",
+        'purchase_price': "FLOAT DEFAULT 0.0",
+        'brand': "VARCHAR(100) DEFAULT ''",
+        'purchase_date': "VARCHAR(20) DEFAULT ''",
+        'valuation_notes': "TEXT DEFAULT ''",
+        'precious_metal_weight': "FLOAT DEFAULT 0.0",
+        'gemstone_params': "TEXT DEFAULT ''",
+        'is_lost': "BOOLEAN DEFAULT 0",
+        'maintenance_status': "VARCHAR(20) DEFAULT 'good'"
+    }
+    for col, col_def in new_cols.items():
+        if col not in existing_cols:
+            try:
+                db.session.execute(text(f"ALTER TABLE accessories ADD COLUMN {col} {col_def}"))
+                db.session.commit()
+            except:
+                pass
 
     if Accessory.query.count() == 0:
         sample_data = [
-            {'name': '经典黄金项链', 'category': '项链', 'material': '黄金', 'color': '亮金色', 'color_family': '金色', 'style': '优雅', 'occasions': '日常,工作,约会', 'storage_location': '首饰盒A层', 'wear_count': 12, 'last_worn_date': '2026-06-01'},
-            {'name': '珍珠耳钉', 'category': '耳环', 'material': '珍珠', 'color': '奶白色', 'color_family': '白色', 'style': '优雅', 'occasions': '工作,正式场合,婚礼', 'storage_location': '首饰盒A层', 'wear_count': 8, 'last_worn_date': '2026-06-03'},
-            {'name': '银色流苏手链', 'category': '手链', 'material': '纯银', 'color': '银白色', 'color_family': '银色', 'style': '休闲', 'occasions': '日常,约会,旅行', 'storage_location': '首饰盒B层', 'wear_count': 5, 'last_worn_date': '2026-05-20'},
-            {'name': '玫瑰金心形吊坠', 'category': '项链', 'material': '玫瑰金', 'color': '粉金色', 'color_family': '玫瑰金', 'style': '甜美', 'occasions': '约会,日常,派对', 'storage_location': '首饰盒A层', 'wear_count': 15, 'last_worn_date': '2026-06-05'},
-            {'name': '复古绿宝石耳环', 'category': '耳环', 'material': '宝石', 'color': '祖母绿', 'color_family': '绿色', 'style': '复古', 'occasions': '派对,晚宴,正式场合', 'storage_location': '首饰盒C层', 'wear_count': 3, 'last_worn_date': '2026-04-15'},
-            {'name': '简约金色手镯', 'category': '手链', 'material': '黄金', 'color': '哑光金', 'color_family': '金色', 'style': '简约', 'occasions': '日常,工作', 'storage_location': '首饰盒B层', 'wear_count': 20, 'last_worn_date': '2026-06-06'},
-            {'name': '波西米亚水晶项链', 'category': '项链', 'material': '水晶', 'color': '天蓝色', 'color_family': '蓝色', 'style': '波西米亚', 'occasions': '旅行,日常,派对', 'storage_location': '挂架-左侧', 'wear_count': 2, 'last_worn_date': '2026-03-10'},
-            {'name': '粉色水晶耳坠', 'category': '耳环', 'material': '水晶', 'color': '樱花粉', 'color_family': '粉色', 'style': '甜美', 'occasions': '约会,日常,节日', 'storage_location': '首饰盒C层', 'wear_count': 6, 'last_worn_date': '2026-05-28'},
-            {'name': '商务款银色领带夹', 'category': '其他', 'material': '纯银', 'color': '亮银色', 'color_family': '银色', 'style': '商务', 'occasions': '工作,正式场合', 'storage_location': '抽屉-右侧', 'wear_count': 1, 'last_worn_date': '2026-02-01'},
-            {'name': '紫色宝石手链', 'category': '手链', 'material': '宝石', 'color': '紫罗兰', 'color_family': '紫色', 'style': '华丽', 'occasions': '晚宴,派对,婚礼', 'storage_location': '首饰盒B层', 'wear_count': 4, 'last_worn_date': '2026-05-15'}
+            {'name': '经典黄金项链', 'category': '项链', 'material': '黄金', 'color': '亮金色', 'color_family': '金色', 'style': '优雅', 'occasions': '日常,工作,约会', 'storage_location': '首饰盒A层', 'wear_count': 12, 'last_worn_date': '2026-06-01', 'purchase_channel': '品牌专柜', 'purchase_price': 8800.0, 'brand': '周大福', 'purchase_date': '2024-03-15', 'precious_metal_weight': 12.5, 'maintenance_status': 'good'},
+            {'name': '珍珠耳钉', 'category': '耳环', 'material': '珍珠', 'color': '奶白色', 'color_family': '白色', 'style': '优雅', 'occasions': '工作,正式场合,婚礼', 'storage_location': '首饰盒A层', 'wear_count': 8, 'last_worn_date': '2026-06-03', 'purchase_channel': '品牌专柜', 'purchase_price': 3200.0, 'brand': 'Tiffany', 'purchase_date': '2024-08-20', 'maintenance_status': 'good'},
+            {'name': '银色流苏手链', 'category': '手链', 'material': '纯银', 'color': '银白色', 'color_family': '银色', 'style': '休闲', 'occasions': '日常,约会,旅行', 'storage_location': '首饰盒B层', 'wear_count': 5, 'last_worn_date': '2026-05-20', 'purchase_channel': '官方网店', 'purchase_price': 680.0, 'brand': '其他', 'purchase_date': '2025-01-10', 'precious_metal_weight': 8.2, 'maintenance_status': 'fair'},
+            {'name': '玫瑰金心形吊坠', 'category': '项链', 'material': '玫瑰金', 'color': '粉金色', 'color_family': '玫瑰金', 'style': '甜美', 'occasions': '约会,日常,派对', 'storage_location': '首饰盒A层', 'wear_count': 15, 'last_worn_date': '2026-06-05', 'purchase_channel': '品牌专柜', 'purchase_price': 5600.0, 'brand': 'Cartier', 'purchase_date': '2024-02-14', 'precious_metal_weight': 6.8, 'maintenance_status': 'good'},
+            {'name': '复古绿宝石耳环', 'category': '耳环', 'material': '宝石', 'color': '祖母绿', 'color_family': '绿色', 'style': '复古', 'occasions': '派对,晚宴,正式场合', 'storage_location': '首饰盒C层', 'wear_count': 3, 'last_worn_date': '2026-04-15', 'purchase_channel': '珠宝店', 'purchase_price': 15800.0, 'brand': 'Van Cleef', 'purchase_date': '2023-12-01', 'gemstone_params': '祖母绿 2.5ct 椭圆形切割', 'maintenance_status': 'good'},
+            {'name': '简约金色手镯', 'category': '手链', 'material': '黄金', 'color': '哑光金', 'color_family': '金色', 'style': '简约', 'occasions': '日常,工作', 'storage_location': '首饰盒B层', 'wear_count': 20, 'last_worn_date': '2026-06-06', 'purchase_channel': '品牌专柜', 'purchase_price': 12000.0, 'brand': '周生生', 'purchase_date': '2024-06-18', 'precious_metal_weight': 25.0, 'maintenance_status': 'good'},
+            {'name': '波西米亚水晶项链', 'category': '项链', 'material': '水晶', 'color': '天蓝色', 'color_family': '蓝色', 'style': '波西米亚', 'occasions': '旅行,日常,派对', 'storage_location': '挂架-左侧', 'wear_count': 2, 'last_worn_date': '2026-03-10', 'purchase_channel': '代购', 'purchase_price': 450.0, 'brand': '其他', 'purchase_date': '2025-09-01', 'maintenance_status': 'good'},
+            {'name': '粉色水晶耳坠', 'category': '耳环', 'material': '水晶', 'color': '樱花粉', 'color_family': '粉色', 'style': '甜美', 'occasions': '约会,日常,节日', 'storage_location': '首饰盒C层', 'wear_count': 6, 'last_worn_date': '2026-05-28', 'purchase_channel': '官方网店', 'purchase_price': 380.0, 'brand': '其他', 'purchase_date': '2025-11-11', 'maintenance_status': 'good'},
+            {'name': '商务款银色领带夹', 'category': '其他', 'material': '纯银', 'color': '亮银色', 'color_family': '银色', 'style': '商务', 'occasions': '工作,正式场合', 'storage_location': '抽屉-右侧', 'wear_count': 1, 'last_worn_date': '2026-02-01', 'purchase_channel': '亲友赠送', 'purchase_price': 880.0, 'brand': 'Gucci', 'purchase_date': '2025-05-20', 'precious_metal_weight': 15.0, 'maintenance_status': 'good'},
+            {'name': '紫色宝石手链', 'category': '手链', 'material': '宝石', 'color': '紫罗兰', 'color_family': '紫色', 'style': '华丽', 'occasions': '晚宴,派对,婚礼', 'storage_location': '首饰盒B层', 'wear_count': 4, 'last_worn_date': '2026-05-15', 'purchase_channel': '珠宝店', 'purchase_price': 22000.0, 'brand': 'Bvlgari', 'purchase_date': '2023-10-08', 'gemstone_params': '紫水晶 3.8ct 圆形切割', 'maintenance_status': 'excellent'}
         ]
         for d in sample_data:
             d['occasions'] = d['occasions']
