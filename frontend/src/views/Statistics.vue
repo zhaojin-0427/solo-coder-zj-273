@@ -826,7 +826,7 @@ const renderCharts = () => {
       xAxis: {
         type: 'category',
         boundaryGap: false,
-        data: stats.value.valuation_trend.map(d => d.date),
+        data: stats.value.valuation_trend.map(d => d.date || d.month),
         axisLine: { lineStyle: { color: '#ddd' } },
         axisLabel: { color: '#666' }
       },
@@ -841,7 +841,7 @@ const renderCharts = () => {
         smooth: true,
         symbol: 'circle',
         symbolSize: 6,
-        data: stats.value.valuation_trend.map(d => d.total_value),
+        data: stats.value.valuation_trend.map(d => d.total_value || d.value),
         lineStyle: { color: '#c9a96e', width: 3 },
         itemStyle: { color: '#c9a96e', borderColor: '#fff', borderWidth: 2 },
         areaStyle: {

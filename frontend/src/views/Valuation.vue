@@ -294,8 +294,38 @@ const handleSubmitValuation = async () => {
 
 const loadData = async () => {
   const data = await getValuationOverview()
-  overview.value = data
-  highValueList.value = data.high_value_accessories || []
+  overview.value = {
+    total_valuation: data.total_asset_value || 0,
+    total_purchase_price: data.total_purchase_value || 0,
+    depreciation_rate: data.depreciation_rate || 0,
+    accessory_count: data.accessory_count || 0,
+    valuation_trend: (data.valuation_trend || []).map(d => ({
+      date: d.date || d.month,
+      total_value: d.total_value || d.value
+    })),
+    category_value_distribution: (data.category_distribution || []).map(d => ({
+      category: d.category,
+      total_value: d.total_value || d.value
+    })),
+    risk_value_distribution: (data.risk_distribution || []).map(d => ({
+      risk_level: d.risk_level || d.level,
+      risk_label: d.label || '',
+      total_value: d.total_value || d.value
+    })).filter(d => d.total_value > 0)
+  }
+  highValueList.value = (data.top_valuable || []).map(v => ({
+    id: v.accessory?.id,
+    photo: v.accessory?.photo,
+    name: v.accessory?.name,
+    category: v.accessory?.category,
+    material: v.accessory?.material,
+    storage_location: v.accessory?.storage_location,
+    current_valuation: v.estimated_value,
+    suggested_insurance: v.insurance_suggestion,
+    risk_level: v.risk_level,
+    wear_frequency: v.wear_frequency,
+    depreciation_reason: v.depreciation_reason
+  }))
   await nextTick()
   renderCharts()
 }

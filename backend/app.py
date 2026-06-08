@@ -1803,6 +1803,12 @@ def get_statistics():
 
     high_value_uninsured.sort(key=lambda x: -x['current_value'])
     valuation_trend_list = sorted([{'month': k, 'value': round(v, 2)} for k, v in valuation_trend.items()])
+    current_month = datetime.now().strftime('%Y-%m')
+    if valuation_trend_list and valuation_trend_list[-1]['month'] == current_month:
+        valuation_trend_list[-1]['value'] = round(total_asset_value, 2)
+    else:
+        valuation_trend_list.append({'month': current_month, 'value': round(total_asset_value, 2)})
+    valuation_trend_list.sort(key=lambda x: x['month'])
 
     all_batches = InventoryBatch.query.all()
     completed_batches = [b for b in all_batches if b.status == 'completed']
@@ -2209,6 +2215,12 @@ def get_valuation_overview():
         except:
             pass
     trend = sorted([{'month': k, 'value': round(v, 2)} for k, v in trend_map.items()])
+    current_month = datetime.now().strftime('%Y-%m')
+    if trend and trend[-1]['month'] == current_month:
+        trend[-1]['value'] = round(total_value, 2)
+    else:
+        trend.append({'month': current_month, 'value': round(total_value, 2)})
+    trend.sort(key=lambda x: x['month'])
 
     category_distribution = sorted([
         {'category': k, 'value': round(v, 2), 'percentage': round(v / max(total_value, 1) * 100, 1)}
